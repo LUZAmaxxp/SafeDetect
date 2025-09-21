@@ -8,6 +8,9 @@ import json
 import websockets
 from websockets.server import WebSocketServerProtocol
 from typing import Set, Dict, List
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.config import WEBSOCKET_HOST, WEBSOCKET_PORT
 import logging
 
