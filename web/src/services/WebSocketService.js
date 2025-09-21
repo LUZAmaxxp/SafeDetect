@@ -1,5 +1,5 @@
 /**
- * WebSocket Service for SafeDetect Mobile App
+ * WebSocket Service for SafeDetect Web App
  * Handles real-time communication with the detection backend
  */
 

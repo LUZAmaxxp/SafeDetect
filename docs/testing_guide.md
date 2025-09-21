@@ -32,14 +32,15 @@ This guide covers testing strategies for all components of the SafeDetect system
 
 ### Hardware Requirements
 - **Test Device**: Computer with camera or Raspberry Pi
-- **Mobile Devices**: iOS/Android phones for app testing
+- **Web Browser**: Modern browser with WebGL support (Chrome, Firefox, Safari, Edge)
 - **Network**: Local WiFi network
 - **Display**: Monitor for visual verification
 
 ### Software Requirements
 - **Python Testing**: pytest, unittest
-- **Mobile Testing**: Expo testing tools
+- **Web Testing**: Jest, React Testing Library
 - **Performance Monitoring**: psutil, memory_profiler
+- **Browser Testing**: Selenium WebDriver (optional)
 
 ### Test Data
 - **Dummy Videos**: Pre-recorded test footage
@@ -133,13 +134,13 @@ class TestWebSocketServer(unittest.TestCase):
         pass
 ```
 
-### Mobile App Unit Tests
+### Web App Unit Tests
 
 ```javascript
-// mobile/tests/App.test.js
+// web/tests/App.test.js
 import React from 'react';
-import { render } from '@testing-library/react-native';
-import App from '../App';
+import { render } from '@testing-library/react';
+import App from '../src/App';
 
 describe('App Component', () => {
     it('renders without crashing', () => {
@@ -210,18 +211,18 @@ class TestBackendIntegration(unittest.TestCase):
         await system.stop()
 ```
 
-#### Mobile-Backend Integration Test
+#### Web-Backend Integration Test
 
 ```python
-# backend/tests/test_mobile_integration.py
+# backend/tests/test_web_integration.py
 import asyncio
 import websockets
 import json
 from backend.computer_vision.websocket_server import DetectionWebSocketServer
 
-class TestMobileIntegration(unittest.TestCase):
+class TestWebIntegration(unittest.TestCase):
     async def test_websocket_communication(self):
-        """Test WebSocket communication with mobile app"""
+        """Test WebSocket communication with web app"""
         server = DetectionWebSocketServer()
 
         # Start server
@@ -257,7 +258,7 @@ from backend.computer_vision.blind_spot import BlindSpotSystem
 
 class TestEndToEnd(unittest.TestCase):
     async def test_full_system_workflow(self):
-        """Test complete system from camera to mobile app"""
+        """Test complete system from camera to web app"""
         system = BlindSpotSystem()
 
         try:
@@ -459,28 +460,29 @@ class TestCameraHardware(unittest.TestCase):
         cap.release()
 ```
 
-### Mobile Device Testing
+### Browser Testing
 
 ```javascript
-// mobile/tests/Device.test.js
-import { Device } from 'expo-device';
-import { Platform } from 'react-native';
-
-describe('Device Compatibility', () => {
-    it('should detect device type', () => {
-        const deviceType = Device.deviceType;
-        expect(deviceType).toBeDefined();
+// web/tests/Browser.test.js
+describe('Browser Compatibility', () => {
+    it('should detect WebGL support', () => {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        expect(gl).toBeTruthy();
     });
 
-    it('should work on supported platforms', () => {
-        const os = Platform.OS;
-        expect(['ios', 'android']).toContain(os);
+    it('should detect browser capabilities', () => {
+        const userAgent = navigator.userAgent;
+        expect(userAgent).toBeDefined();
     });
 
-    it('should have required sensors', async () => {
-        // Test haptic feedback availability
-        const hasHaptics = await Haptics.isAvailableAsync();
-        expect(hasHaptics).toBe(true);
+    it('should detect screen dimensions', () => {
+        expect(window.innerWidth).toBeGreaterThan(0);
+        expect(window.innerHeight).toBeGreaterThan(0);
+    });
+
+    it('should support WebSocket connections', () => {
+        expect(typeof WebSocket).toBe('function');
     });
 });
 ```
@@ -639,11 +641,11 @@ python -m pytest tests/ --cov=computer_vision --cov-report=html
 python -m pytest tests/test_performance.py -v
 ```
 
-### Mobile App Tests
+### Web App Tests
 
 ```bash
-# Navigate to mobile directory
-cd mobile
+# Navigate to web directory
+cd web
 
 # Run tests
 npm test
@@ -676,7 +678,7 @@ python -m pytest tests/ --cov=computer_vision --cov-report=html
 # JUnit XML for CI/CD
 python -m pytest tests/ --junitxml=test_results.xml
 
-# Mobile app test report
+# Web app test report
 npm run test:report
 ```
 
@@ -740,7 +742,7 @@ self.assertEqual(result, expected, f"Expected {expected}, got {result}")
 - [ ] Performance requirements met
 - [ ] Safety features verified
 - [ ] Hardware compatibility confirmed
-- [ ] Mobile app functionality tested
+- [ ] Web app functionality tested
 - [ ] Error handling verified
 - [ ] Documentation updated
 

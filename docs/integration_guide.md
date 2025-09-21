@@ -9,12 +9,12 @@ How to integrate the SafeDetect blind spot detection system components and custo
 SafeDetect consists of three main components:
 1. **Computer Vision Backend** (Python)
 2. **WebSocket Server** (Python)
-3. **Mobile Application** (React Native)
+3. **Web Application** (React.js)
 
 ### Data Flow
 
 ```
-Camera Input → YOLOv8 Detection → Blind Spot Analysis → WebSocket Broadcast → Mobile App Display
+Camera Input → YOLOv8 Detection → Blind Spot Analysis → WebSocket Broadcast → Web App Display
 ```
 
 ## 🛠️ Backend Integration
@@ -90,18 +90,24 @@ class MultiCameraDetector:
         return all_detections
 ```
 
-## 📱 Mobile App Integration
+## 🌐 Web App Integration
 
 ### Custom Alert System
 
-Extend the alert system in `mobile/App.js`:
+Extend the alert system in `web/src/App.js`:
 
 ```javascript
 const triggerCustomAlert = async (detection) => {
     // Custom alert logic based on detection type
     if (detection.object === 'person') {
         // Special alert for pedestrians
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        if ('vibrate' in navigator) {
+            navigator.vibrate([200, 100, 200]); // Vibration pattern
+        }
+        new Notification('Pedestrian Detected!', {
+            body: 'Person detected in blind spot area',
+            icon: '/favicon.ico'
+        });
     } else {
         // Standard alert for vehicles
         await triggerAlert();
@@ -114,7 +120,7 @@ const triggerCustomAlert = async (detection) => {
 Replace the basic truck model with custom 3D models:
 
 ```javascript
-// mobile/components/CustomTruck.js
+// web/src/components/CustomTruck.js
 import { useGLTF } from '@react-three/drei';
 
 export default function CustomTruck() {
@@ -136,7 +142,7 @@ export default function CustomTruck() {
 Add custom message types:
 
 ```javascript
-// In WebSocketService.js
+// In web/src/services/WebSocketService.js
 handleMessage(data) {
     switch (data.type) {
         case 'detections':
@@ -166,7 +172,7 @@ WEBSOCKET_HOST = "0.0.0.0"  # Bind to all interfaces
 WEBSOCKET_PORT = 8765
 ```
 
-2. **Update Mobile App**:
+2. **Update Web App**:
 ```javascript
 // Use actual IP address instead of localhost
 const wsService = new WebSocketService('ws://192.168.1.100:8765');
@@ -183,7 +189,7 @@ WEBSOCKET_HOST = "your-cloud-server.com"
 WEBSOCKET_PORT = 8765
 ```
 
-2. **Mobile App**:
+2. **Web App**:
 ```javascript
 // Connect to cloud WebSocket
 const wsService = new WebSocketService('wss://your-cloud-server.com/ws');
@@ -409,7 +415,7 @@ class TestBlindSpotDetector(unittest.TestCase):
 import asyncio
 import unittest
 from backend.computer_vision.blind_spot import BlindSpotSystem
-from mobile.services.WebSocketService import WebSocketService
+from web.src.services.WebSocketService import WebSocketService
 
 class TestSystemIntegration(unittest.TestCase):
     async def test_full_system(self):
@@ -417,7 +423,7 @@ class TestSystemIntegration(unittest.TestCase):
         system = BlindSpotSystem()
         await system.start(use_camera=False)
 
-        # Connect mobile client
+        # Connect web client
         ws_client = WebSocketService('ws://localhost:8765')
         connected = await ws_client.connect()
 
@@ -578,7 +584,7 @@ spec:
 3. **Hardware Compatibility**:
    - Test with target hardware
    - Verify camera compatibility
-   - Check mobile device capabilities
+   - Check web browser capabilities
 
 ### Debug Integration
 
@@ -590,7 +596,7 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ```javascript
-// Enable React Native debug logging
+// Enable React.js debug logging
 console.log('Integration debug info:', data);
 ```
 

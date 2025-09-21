@@ -7,14 +7,14 @@ Complete installation and setup instructions for the SafeDetect blind spot detec
 ### Hardware Requirements
 - **Computer/Raspberry Pi**: 2+ core CPU, 4GB+ RAM
 - **Camera**: USB webcam or Raspberry Pi camera module
-- **Mobile Device**: iOS or Android smartphone/tablet
+- **Web Browser**: Modern browser with WebGL support
 - **Network**: Local WiFi network
 
 ### Software Requirements
 - **Python**: 3.8 or higher
 - **Node.js**: 16 or higher
-- **Expo CLI**: Latest version
 - **Git**: For cloning repository
+- **Modern Web Browser**: Chrome, Firefox, Safari, or Edge with WebGL support
 
 ## 🛠️ Installation
 
@@ -56,22 +56,16 @@ python -c "from ultralytics import YOLO; print('YOLOv8 installed successfully')"
 python -c "import cv2; print('OpenCV version:', cv2.__version__)"
 ```
 
-### Step 3: Mobile App Setup
+### Step 3: Web App Setup
 
 #### Install Node.js Dependencies
 
 ```bash
-# Navigate to mobile directory
-cd ../mobile
+# Navigate to web directory
+cd ../web
 
 # Install dependencies
 npm install
-```
-
-#### Install Expo CLI (if not already installed)
-
-```bash
-npm install -g @expo/cli
 ```
 
 ### Step 4: Configuration
@@ -92,9 +86,9 @@ CAMERA_HEIGHT = 480
 FPS_TARGET = 15
 ```
 
-#### Mobile App Configuration
+#### Web App Configuration
 
-Edit `mobile/App.js` to set the correct IP address:
+Edit `web/src/services/WebSocketService.js` to set the correct IP address:
 
 ```javascript
 // Replace 'localhost' with your computer's IP address
@@ -102,9 +96,9 @@ const wsService = new WebSocketService('ws://YOUR_IP_ADDRESS:8765');
 ```
 
 **IP Address Configuration:**
-- **Android Emulator**: Use `ws://10.0.2.2:8765`
-- **iOS Simulator**: Use `ws://localhost:8765`
-- **Physical Device**: Use your computer's local IP address
+- **Development Server**: Use `ws://localhost:8765` for local development
+- **Network Access**: Use your computer's local IP address for access from other devices
+- **Production**: Use the production server URL
 
 ## 🚀 Running the System
 
@@ -118,10 +112,10 @@ source venv/bin/activate
 python computer_vision/blind_spot.py
 ```
 
-#### Terminal 2 - Mobile App
+#### Terminal 2 - Web App
 
 ```bash
-cd mobile
+cd web
 npm start
 ```
 
@@ -140,44 +134,14 @@ python backend/computer_vision/websocket_server.py
 python backend/computer_vision/blind_spot.py
 ```
 
-#### Mobile App Only
+#### Web App Only
 
 ```bash
-cd mobile
+cd web
 npm start
 ```
 
-## 📱 Mobile App Deployment
 
-### Option 1: Expo Go (Development)
-
-1. Install **Expo Go** app on your mobile device
-2. Scan QR code from terminal after running `npm start`
-3. App will load and connect to backend
-
-### Option 2: Development Build
-
-```bash
-cd mobile
-
-# Install EAS CLI
-npm install -g @expo/eas-cli
-
-# Login to Expo
-eas login
-
-# Build for development
-eas build --platform android --profile development
-eas build --platform ios --profile development
-```
-
-### Option 3: Production Build
-
-```bash
-# Build for production
-eas build --platform android
-eas build --platform ios
-```
 
 ## 🖥️ Hardware Setup
 
@@ -233,7 +197,7 @@ sudo iptables -A INPUT -p tcp --dport 8765 -j ACCEPT
 
 1. Place a test video file named `dummy_video.mp4` in the backend directory
 2. Run the system - it will automatically use the dummy video
-3. Verify detections appear in mobile app
+3. Verify detections appear in web browser
 
 ### Test with Real Camera
 
@@ -272,7 +236,7 @@ while True:
 
 #### 1. WebSocket Connection Failed
 
-**Symptoms**: Mobile app shows "Disconnected" or "Connection Error"
+**Symptoms**: Web app shows "Disconnected" or "Connection Error"
 
 **Solutions**:
 - Verify backend is running on correct port
@@ -300,13 +264,15 @@ while True:
 - Use GPU acceleration if available
 - Reduce detection confidence threshold
 
-#### 4. Mobile App Not Loading
+#### 4. Web App Not Loading
 
-**Symptoms**: QR code not scanning, app not starting
+**Symptoms**: Browser shows blank page, 3D graphics not rendering
 
 **Solutions**:
-- Clear Expo cache: `expo start -c`
-- Restart development server
+- Clear browser cache and refresh
+- Restart development server: `npm start`
+- Check browser console for errors
+- Verify WebGL support in browser
 - Check Node.js version compatibility
 - Verify all dependencies installed
 
@@ -321,7 +287,7 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ```javascript
-// In React Native
+// In React.js
 console.log('Debug information')
 ```
 
@@ -340,11 +306,11 @@ netstat -tlnp | grep 8765
 htop
 ```
 
-### Check Mobile App Status
+### Check Web App Status
 
 ```bash
-# Check Expo development server
-curl http://localhost:19006
+# Check development server
+curl http://localhost:3000
 
 # Check WebSocket connection
 # Use browser developer tools to inspect WebSocket connections
@@ -471,13 +437,14 @@ For additional help:
 ## ✅ Verification Checklist
 
 - [ ] Backend dependencies installed
-- [ ] Mobile app dependencies installed
+- [ ] Web app dependencies installed
 - [ ] Configuration files updated
 - [ ] Network connectivity verified
 - [ ] Camera access confirmed
 - [ ] WebSocket connection tested
-- [ ] Mobile app connects successfully
-- [ ] Detections appear in mobile app
+- [ ] Web app connects successfully
+- [ ] Detections appear in web browser
+- [ ] 3D visualization renders correctly
 - [ ] Alerts trigger correctly
 
 ---

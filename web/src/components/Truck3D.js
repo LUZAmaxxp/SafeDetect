@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Box, Cylinder } from '@react-three/drei';
 import * as THREE from 'three';
 
 export default function Truck3D() {
@@ -18,91 +17,63 @@ export default function Truck3D() {
   return (
     <group ref={truckRef} position={[0, 0, 0]}>
       {/* Main truck body */}
-      <Box
-        args={[truckConfig.length, truckConfig.height, truckConfig.width]}
-        position={[0, truckConfig.height / 2, 0]}
-      >
+      <mesh position={[0, truckConfig.height / 2, 0]}>
+        <boxGeometry args={[truckConfig.length, truckConfig.height, truckConfig.width]} />
         <meshStandardMaterial color="#4169E1" />
-      </Box>
+      </mesh>
 
       {/* Truck cabin */}
-      <Box
-        args={[2, 1.5, truckConfig.width]}
-        position={[-2, truckConfig.height + 0.5, 0]}
-      >
+      <mesh position={[-2, truckConfig.height + 0.5, 0]}>
+        <boxGeometry args={[2, 1.5, truckConfig.width]} />
         <meshStandardMaterial color="#1E40AF" />
-      </Box>
+      </mesh>
 
       {/* Front windshield */}
-      <Box
-        args={[1.8, 0.8, truckConfig.width + 0.1]}
-        position={[-2.9, truckConfig.height + 0.5, 0]}
-      >
+      <mesh position={[-2.9, truckConfig.height + 0.5, 0]}>
+        <boxGeometry args={[1.8, 0.8, truckConfig.width + 0.1]} />
         <meshStandardMaterial color="#87CEEB" transparent opacity={0.7} />
-      </Box>
+      </mesh>
 
       {/* Wheels */}
       {/* Front wheels */}
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[-3, 0, -1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      <mesh position={[-3, 0, -1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[-3, 0, 1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      </mesh>
+      <mesh position={[-3, 0, 1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
+      </mesh>
 
       {/* Rear wheels */}
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[2, 0, -1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      <mesh position={[2, 0, -1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[2, 0, 1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      </mesh>
+      <mesh position={[2, 0, 1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
+      </mesh>
 
       {/* Additional rear wheels for truck */}
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[0, 0, -1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      <mesh position={[0, 0, -1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
-      <Cylinder
-        args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]}
-        position={[0, 0, 1.2]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
+      </mesh>
+      <mesh position={[0, 0, 1.2]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[truckConfig.wheelRadius, truckConfig.wheelRadius, truckConfig.wheelWidth, 16]} />
         <meshStandardMaterial color="#333" />
-      </Cylinder>
+      </mesh>
 
       {/* Side mirrors */}
-      <Box
-        args={[0.2, 0.3, 0.1]}
-        position={[-1.5, truckConfig.height + 0.3, -1.3]}
-      >
+      <mesh position={[-1.5, truckConfig.height + 0.3, -1.3]}>
+        <boxGeometry args={[0.2, 0.3, 0.1]} />
         <meshStandardMaterial color="#444" />
-      </Box>
-      <Box
-        args={[0.2, 0.3, 0.1]}
-        position={[-1.5, truckConfig.height + 0.3, 1.3]}
-      >
+      </mesh>
+      <mesh position={[-1.5, truckConfig.height + 0.3, 1.3]}>
+        <boxGeometry args={[0.2, 0.3, 0.1]} />
         <meshStandardMaterial color="#444" />
-      </Box>
+      </mesh>
 
       {/* Blind spot indicators */}
       <BlindSpotZones truckConfig={truckConfig} />
@@ -137,46 +108,37 @@ function BlindSpotZones({ truckConfig }) {
   return (
     <group>
       {/* Left blind spot zone */}
-      <Box
-        ref={leftZoneRef}
-        args={[2, 3, 1]}
-        position={[-1, 1.5, -3]}
-      >
+      <mesh ref={leftZoneRef} position={[-1, 1.5, -3]}>
+        <boxGeometry args={[2, 3, 1]} />
         <meshStandardMaterial
           color="#FF4444"
           transparent
           opacity={0.3}
           wireframe
         />
-      </Box>
+      </mesh>
 
       {/* Right blind spot zone */}
-      <Box
-        ref={rightZoneRef}
-        args={[2, 3, 1]}
-        position={[-1, 1.5, 3]}
-      >
+      <mesh ref={rightZoneRef} position={[-1, 1.5, 3]}>
+        <boxGeometry args={[2, 3, 1]} />
         <meshStandardMaterial
           color="#FF4444"
           transparent
           opacity={0.3}
           wireframe
         />
-      </Box>
+      </mesh>
 
       {/* Rear blind spot zone */}
-      <Box
-        ref={rearZoneRef}
-        args={[6, 3, 2.5]}
-        position={[4, 1.5, 0]}
-      >
+      <mesh ref={rearZoneRef} position={[4, 1.5, 0]}>
+        <boxGeometry args={[6, 3, 2.5]} />
         <meshStandardMaterial
           color="#FF4444"
           transparent
           opacity={0.3}
           wireframe
         />
-      </Box>
+      </mesh>
     </group>
   );
 }

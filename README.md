@@ -1,10 +1,10 @@
 # SafeDetect - Blind Spot Detection and Alert System
 
-A comprehensive computer vision and mobile application system that detects vehicles, motorcycles, and pedestrians in truck/bus blind spots and provides real-time 3D visualization alerts to drivers.
+A comprehensive computer vision and web application system that detects vehicles, motorcycles, and pedestrians in truck/bus blind spots and provides real-time 3D visualization alerts to drivers.
 
 ## 🚀 Overview
 
-SafeDetect combines cutting-edge computer vision with immersive 3D visualization to help commercial vehicle drivers identify potential hazards in their blind spots. The system uses YOLOv8 for real-time object detection and streams results to a mobile app with interactive 3D truck visualization.
+SafeDetect combines cutting-edge computer vision with immersive 3D visualization to help commercial vehicle drivers identify potential hazards in their blind spots. The system uses YOLOv8 for real-time object detection and streams results to a web app with interactive 3D truck visualization.
 
 ## ✨ Features
 
@@ -14,23 +14,23 @@ SafeDetect combines cutting-edge computer vision with immersive 3D visualization
 - **Multi-camera Support**: Configurable for multiple camera inputs
 - **Performance Optimized**: Maintains 15+ FPS for real-time operation
 
-### 📱 Mobile Application
+### 🌐 Web Application
 - **3D Visualization**: Interactive 3D truck model with dynamic object overlay
-- **Real-time Alerts**: Visual, audio, and haptic feedback for blind spot detections
-- **Touch Controls**: Intuitive orbit controls for camera manipulation
-- **Cross-platform**: Works on iOS and Android devices
+- **Real-time Alerts**: Visual and audio feedback for blind spot detections
+- **Mouse/Touch Controls**: Intuitive orbit controls for camera manipulation
+- **Cross-platform**: Works on desktop and mobile browsers
 
 ### 🌐 Communication
 - **WebSocket Streaming**: Low-latency real-time data transmission
 - **Offline Capable**: No cloud dependency for core functionality
-- **Multi-client Support**: Multiple mobile devices can connect simultaneously
+- **Multi-client Support**: Multiple web browsers can connect simultaneously
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    WebSocket    ┌─────────────────┐
-│   Python        │───────────────▶│   React Native  │
-│   Backend       │                │   Mobile App    │
+│   Python        │───────────────▶│   React.js      │
+│   Backend       │                │   Web App       │
 │                 │◀───────────────│                 │
 │ • YOLOv8        │                │ • 3D Truck      │
 │ • OpenCV        │                │ • WebSocket     │
@@ -44,13 +44,13 @@ SafeDetect combines cutting-edge computer vision with immersive 3D visualization
 ### Hardware
 - **Processing Unit**: Raspberry Pi 4+ or laptop/desktop computer
 - **Camera**: USB webcam or Raspberry Pi camera module (multiple recommended)
-- **Mobile Device**: iOS or Android smartphone/tablet
+- **Web Browser**: Modern browser with WebGL support (Chrome, Firefox, Safari, Edge)
 - **Network**: Local WiFi network for communication
 
 ### Software
 - **Python**: 3.8+ with required packages
-- **Node.js**: 16+ for React Native development
-- **Expo CLI**: For mobile app development
+- **Node.js**: 16+ for React.js development
+- **Modern Web Browser**: With WebGL support for 3D visualization
 
 ## 🚀 Quick Start
 
@@ -71,11 +71,11 @@ pip install -r requirements.txt
 python computer_vision/blind_spot.py
 ```
 
-### 2. Mobile App Setup
+### 2. Web App Setup
 
 ```bash
-# Navigate to mobile directory
-cd mobile
+# Navigate to web directory
+cd web
 
 # Install dependencies
 npm install
@@ -84,12 +84,12 @@ npm install
 npm start
 ```
 
-### 3. Connect Mobile App
+### 3. Connect Web App
 
 1. **Find Your IP Address**: Get your computer's local IP address
-2. **Update Connection**: Edit `mobile/App.js` and replace `localhost` with your IP
-3. **Scan QR Code**: Use Expo Go app to scan the QR code from terminal
-4. **Test Connection**: The app should connect and show "Connected" status
+2. **Update Connection**: Edit `web/src/services/WebSocketService.js` and replace `localhost` with your IP
+3. **Open Browser**: Navigate to `http://localhost:3000` in your web browser
+4. **Test Connection**: The web app should connect and show "Connected" status
 
 ## 📁 Project Structure
 
@@ -102,15 +102,21 @@ SafeDetect/
 │   │   └── blind_spot.py     # Main integration system
 │   ├── requirements.txt      # Python dependencies
 │   └── README.md            # Backend documentation
-├── mobile/                    # React Native mobile app
-│   ├── components/           # 3D visualization components
-│   │   ├── Truck3D.js       # 3D truck model
-│   │   └── DetectionOverlay.js # Object detection overlay
-│   ├── services/            # Communication services
-│   │   └── WebSocketService.js # WebSocket client
-│   ├── App.js              # Main app component
-│   ├── package.json        # Node dependencies
-│   └── README.md           # Mobile app documentation
+├── web/                       # React.js web app
+│   ├── src/                  # Source code
+│   │   ├── components/       # 3D visualization components
+│   │   │   ├── Truck3D.js    # 3D truck model
+│   │   │   └── DetectionOverlay.js # Object detection overlay
+│   │   ├── services/         # Communication services
+│   │   │   └── WebSocketService.js # WebSocket client
+│   │   ├── App.js            # Main app component
+│   │   ├── App.css           # Application styles
+│   │   └── index.js          # React entry point
+│   ├── public/               # Static assets
+│   │   └── index.html        # HTML entry point
+│   ├── package.json          # Node dependencies
+│   ├── webpack.config.js     # Webpack configuration
+│   └── README.md             # Web app documentation
 ├── shared/                  # Shared configuration
 │   └── config.py           # System configuration
 ├── docs/                   # Documentation
@@ -131,13 +137,13 @@ SafeDetect/
    python computer_vision/blind_spot.py
    ```
 
-2. **Start Mobile App**:
+2. **Start Web App**:
    ```bash
-   cd mobile
+   cd web
    npm start
    ```
 
-3. **Connect Devices**: Multiple mobile devices can connect to the same backend
+3. **Connect Browsers**: Multiple browser tabs or windows can connect to the same backend
 
 ### Testing with Dummy Video
 
@@ -167,9 +173,9 @@ Edit `shared/config.py` to customize:
 - Camera settings
 - WebSocket configuration
 
-### Mobile App Settings
+### Web App Settings
 
-Update `mobile/App.js` for:
+Update `web/src/services/WebSocketService.js` for:
 - WebSocket server IP address
 - Alert sensitivity
 - 3D visualization parameters
@@ -177,9 +183,9 @@ Update `mobile/App.js` for:
 ## 📊 Performance
 
 - **Detection Speed**: 15+ FPS on Raspberry Pi 4
-- **Latency**: <100ms from detection to mobile display
+- **Latency**: <100ms from detection to web browser display
 - **Accuracy**: 85%+ detection accuracy for relevant objects
-- **Concurrent Users**: Up to 10 mobile devices simultaneously
+- **Concurrent Users**: Up to 10 browser tabs or windows simultaneously
 
 ## 🧪 Testing
 
@@ -198,7 +204,7 @@ python backend/computer_vision/blind_spot.py
 ### Performance Testing
 - Monitor FPS in detection output
 - Test WebSocket latency
-- Verify mobile app responsiveness
+- Verify web app responsiveness
 
 ## 📚 Documentation
 
@@ -206,7 +212,7 @@ python backend/computer_vision/blind_spot.py
 - **[Integration Guide](docs/integration_guide.md)**: How to connect components
 - **[Testing Guide](docs/testing_guide.md)**: Testing procedures and examples
 - **[Backend API](backend/README.md)**: Backend component documentation
-- **[Mobile App](mobile/README.md)**: Mobile application details
+- **[Web App](web/README.md)**: Web application details
 
 ## 🔒 Safety Features
 
@@ -217,11 +223,12 @@ python backend/computer_vision/blind_spot.py
 
 ## 🚛 Use Cases
 
-- **Commercial Trucks**: Long-haul trucking operations
-- **School Buses**: Student transportation safety
-- **Delivery Vehicles**: Urban delivery operations
+- **Commercial Trucks**: Long-haul trucking operations with in-cab displays
+- **School Buses**: Student transportation safety with driver monitoring
+- **Delivery Vehicles**: Urban delivery operations with dashboard displays
 - **Construction Equipment**: Heavy machinery blind spot monitoring
-- **Emergency Vehicles**: Ambulance and fire truck safety
+- **Emergency Vehicles**: Ambulance and fire truck safety with integrated displays
+- **Fleet Management**: Centralized monitoring through web dashboards
 
 ## 🤝 Contributing
 
@@ -241,9 +248,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Ultralytics**: YOLOv8 computer vision framework
 - **OpenCV**: Computer vision library
-- **React Native**: Cross-platform mobile development
+- **React.js**: Web application framework
 - **Three.js**: 3D graphics library
-- **Expo**: React Native development platform
+- **React Three Fiber**: React renderer for Three.js
 
 ## 📞 Support
 

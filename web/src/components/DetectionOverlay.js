@@ -1,6 +1,5 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 
 export default function DetectionOverlay({ detections }) {
@@ -90,7 +89,8 @@ function DetectionSphere({ detection, color, size }) {
   return (
     <group position={worldPosition}>
       {/* Main detection sphere */}
-      <Sphere ref={sphereRef} args={[size, 16, 16]}>
+      <mesh ref={sphereRef}>
+        <sphereGeometry args={[size, 16, 16]} />
         <meshStandardMaterial
           color={color}
           transparent
@@ -98,27 +98,29 @@ function DetectionSphere({ detection, color, size }) {
           emissive={color}
           emissiveIntensity={0.2}
         />
-      </Sphere>
+      </mesh>
 
       {/* Confidence indicator ring */}
-      <Sphere args={[size * 1.2, 16, 16]}>
+      <mesh>
+        <sphereGeometry args={[size * 1.2, 16, 16]} />
         <meshStandardMaterial
           color={color}
           transparent
           opacity={0.1 * confidence}
           wireframe
         />
-      </Sphere>
+      </mesh>
 
       {/* Glow effect for high confidence detections */}
       {confidence > 0.7 && (
-        <Sphere args={[size * 1.5, 16, 16]}>
+        <mesh>
+          <sphereGeometry args={[size * 1.5, 16, 16]} />
           <meshBasicMaterial
             color={color}
             transparent
             opacity={0.05}
           />
-        </Sphere>
+        </mesh>
       )}
     </group>
   );

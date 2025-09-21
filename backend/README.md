@@ -125,8 +125,8 @@ Edit `shared/config.py` to modify:
 
 - **Target FPS**: 15 FPS
 - **Resolution**: 640x480 (configurable)
-- **Latency**: <100ms from detection to mobile app
-- **Concurrent Clients**: Up to 10 mobile devices
+- **Latency**: <100ms from detection to web app
+- **Concurrent Clients**: Up to 10 web browsers
 
 ## Troubleshooting
 
@@ -145,7 +145,7 @@ Edit `shared/config.py` to modify:
 3. **WebSocket Connection Failed**:
    - Check if port 8765 is available
    - Verify firewall settings
-   - Ensure mobile app is on same network
+   - Ensure web app is accessible on same network
 
 4. **YOLOv8 Model Download Issues**:
    - Check internet connection
