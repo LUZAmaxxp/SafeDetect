@@ -74,22 +74,21 @@ class MultiCameraDetector:
         x_center = (x1 + x2) / 2 / frame_width
         y_center = (y1 + y2) / 2 / frame_height
 
-        # Simple direct mapping: if camera 0 detects something, show it on left side
-        camera_config = CAMERA_CONFIG.get(zone, {})
-        if camera_config.get("camera_id") == 0:  # MacBook camera
-            # Always show on left side of truck - use coordinate that will be visible
-            # Web interface multiplies X by 2, so -1.0 becomes -2.0 (visible on left)
-            world_x = 1.0  # Left side of truck (will become -2.0 after web scaling)
-            world_z = 3 # Beside the truck (not front/back)
-            world_y = 0.5  # Height offset
-
-            return {"x": world_x, "y": world_y, "z": world_z, "zone": zone}
-
         # Convert to world coordinates (meters)
         world_x = x_center * POSITION_SCALE["x"]
         world_y = y_center * POSITION_SCALE["y"]
 
-        return {"x": world_x, "y": world_y, "zone": zone}
+        # Set Z coordinate based on camera zone for better 3D positioning
+        if zone == "left":
+            world_z = 4.0  # Behind truck (negative Z)
+        elif zone == "right":
+            world_z = -5.0  # Behind truck (negative Z)
+        elif zone == "rear":
+            world_z = 0  # Further behind truck
+        else:
+            world_z = 0  # Default
+
+        return {"x": world_x, "y": world_y, "z": world_z, "zone": zone}
 
     def start_cameras(self) -> Dict[str, bool]:
         """Start all configured cameras"""

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-// import { OrbitControls } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import WebSocketService from './services/WebSocketService';
 import Truck3D from './components/Truck3D';
 import DetectionOverlay from './components/DetectionOverlay';
@@ -13,7 +13,9 @@ export default function App() {
   const [alertActive, setAlertActive] = useState(false);
   const [fps, setFps] = useState(0);
   const [serverIP, setServerIP] = useState('localhost');
+  const [cameraView, setCameraView] = useState('default'); // 'default', 'rear', 'left', 'right'
   const wsService = useRef(null);
+  const cameraRef = useRef(null);
 
   useEffect(() => {
     // Initialize WebSocket service
@@ -60,6 +62,29 @@ export default function App() {
       }
     };
   }, [serverIP]);
+
+  // Update camera position when view changes
+  useEffect(() => {
+    if (cameraRef.current) {
+      const position = getCameraPosition();
+      const target = getCameraTarget();
+
+      console.log(`Updating camera to view: ${cameraView}, position:`, position);
+
+      // Smooth camera transition
+      cameraRef.current.position.set(position[0], position[1], position[2]);
+      cameraRef.current.lookAt(target[0], target[1], target[2]);
+      cameraRef.current.updateProjectionMatrix();
+
+      // Add a small delay to ensure smooth transition
+      setTimeout(() => {
+        if (cameraRef.current) {
+          cameraRef.current.updateProjectionMatrix();
+          console.log(`Camera updated for view: ${cameraView}`);
+        }
+      }, 100);
+    }
+  }, [cameraView]);
 
   const triggerAlert = async () => {
     setAlertActive(true);
@@ -116,14 +141,87 @@ export default function App() {
     }
   };
 
+  // Camera view switching functions
+  const switchToDefaultView = () => {
+    console.log('Switching to default view');
+    setCameraView('default');
+  };
+
+  const switchToRearView = () => {
+    console.log('Switching to rear view');
+    setCameraView('rear');
+  };
+
+  const switchToLeftView = () => {
+    console.log('Switching to left view');
+    setCameraView('left');
+  };
+
+  const switchToRightView = () => {
+    console.log('Switching to right view');
+    setCameraView('right');
+  };
+
+  // Get camera position based on current view
+  const getCameraPosition = () => {
+    switch (cameraView) {
+      case 'rear':
+        return [-10, 5, 0]; // Behind the truck
+      case 'left':
+        return [0, 5, -15]; // Left side of truck
+      case 'right':
+        return [0, 5, 15]; // Right side of truck
+      default:
+        return [10, 5, 10]; // Default diagonal view
+    }
+  };
+
+  // Get camera target (look at) position
+  const getCameraTarget = () => {
+    return [0, 0, 0]; // Always look at the truck
+  };
+
   return (
     <div className="app">
       {/* Header */}
       <div className="header">
         <h1 className="title">SafeDetect</h1>
-        <button onClick={reconnect} className="reconnect-button">
-          🔄
-        </button>
+        <div className="header-controls">
+          {/* Camera View Controls */}
+          <div className="camera-controls">
+            <button
+              onClick={switchToDefaultView}
+              className={`camera-button ${cameraView === 'default' ? 'active' : ''}`}
+              title="Default View"
+            >
+              📐
+            </button>
+            <button
+              onClick={switchToRearView}
+              className={`camera-button ${cameraView === 'rear' ? 'active' : ''}`}
+              title="Rear View"
+            >
+              🔄
+            </button>
+            <button
+              onClick={switchToLeftView}
+              className={`camera-button ${cameraView === 'left' ? 'active' : ''}`}
+              title="Left Side View"
+            >
+              ⬅️
+            </button>
+            <button
+              onClick={switchToRightView}
+              className={`camera-button ${cameraView === 'right' ? 'active' : ''}`}
+              title="Right Side View"
+            >
+              ➡️
+            </button>
+          </div>
+          <button onClick={reconnect} className="reconnect-button">
+            🔄
+          </button>
+        </div>
       </div>
 
       {/* Connection Status */}
@@ -153,20 +251,66 @@ export default function App() {
         </div>
       )}
 
-      {/* 3D Scene */}
+      {/* 3D Scene - Enhanced with futuristic lighting */}
       <div className="scene-container">
         <Canvas
-          camera={{ position: [10, 5, 10], fov: 60 }}
-          style={{ background: '#000' }}
+          camera={{ position: getCameraPosition(), fov: 60 }}
+          style={{ background: 'transparent' }}
+          shadows
+          onCreated={({ camera, gl }) => {
+            // Store camera reference for manual updates
+            cameraRef.current = camera;
+            camera.userData = { ...camera.userData, needsUpdate: true };
+          }}
         >
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          <pointLight position={[-10, -10, -10]} intensity={0.5} />
-          
+          {/* Advanced lighting setup */}
+          <ambientLight intensity={0.2} color="#4a90e2" />
+          <directionalLight
+            position={[10, 10, 5]}
+            intensity={1.5}
+            color="#ffffff"
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+            shadow-camera-far={50}
+            shadow-camera-left={-20}
+            shadow-camera-right={20}
+            shadow-camera-top={20}
+            shadow-camera-bottom={-20}
+          />
+          <pointLight position={[-10, 5, -10]} intensity={0.8} color="#00d4ff" />
+          <pointLight position={[10, 5, 10]} intensity={0.6} color="#ff6b6b" />
+          <spotLight
+            position={[0, 15, 0]}
+            angle={0.3}
+            penumbra={1}
+            intensity={0.5}
+            color="#ffffff"
+            castShadow
+          />
+
+          {/* Fog effect for depth */}
+          <fog attach="fog" args={['#0a0a0a', 15, 50]} />
+
           <Truck3D />
           <DetectionOverlay detections={detections} />
-          
-          {/* OrbitControls temporarily disabled for compatibility */}
+
+          {/* Camera Controls */}
+          <OrbitControls
+            target={getCameraTarget()}
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minDistance={5}
+            maxDistance={30}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI}
+            enableDamping={true}
+            dampingFactor={0.05}
+            onChange={() => {
+              // Optional: Add any camera change logic here
+            }}
+          />
         </Canvas>
       </div>
 
