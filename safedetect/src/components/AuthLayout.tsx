@@ -23,11 +23,7 @@ const AuthLayout: React.FC = () => {
             
             {/* Right Card - Sign Up */}
             <div className="auth-card">
-              <div className="card-header">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Create your account</h3>
-              </div>
-              
-              <div className="card-content">
+           <div className="card-content">
                 <Outlet />
               </div>
             </div>

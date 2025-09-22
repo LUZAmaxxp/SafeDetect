@@ -35,6 +35,10 @@ const SignIn: React.FC = () => {
           <Link to="/auth/forgot-password" className="forgot-password">
             Forgot password?
           </Link>
+          <br />
+          <Link to="/auth/signup" className="Join-Us">
+            Don't Have an Account ? Join Us .
+          </Link>
         </div>
       </div>
     </div>
