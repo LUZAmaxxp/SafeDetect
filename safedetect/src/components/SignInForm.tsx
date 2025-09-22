@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
@@ -58,6 +59,11 @@ const SignInForm: React.FC = () => {
         {errors.password && (
           <p className="form-error">{errors.password.message}</p>
         )}
+        <div>
+        <Link to="/auth/forgot-password" className="forgot-password">
+                    Forgot password?
+          </Link>
+        </div>
       </div>
 
       <div className="form-group checkbox-group">

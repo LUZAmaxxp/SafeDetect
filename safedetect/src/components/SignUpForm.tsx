@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -98,6 +99,11 @@ const SignUpForm: React.FC = () => {
       <button type="submit" className="btn btn-primary" disabled={isLoading}>
         {isLoading ? "Creating account..." : "Sign Up"}
       </button>
+      <div className="text-center mt-4">
+         <Link to="/auth/signin" className="Join-Us">
+                Already Have an Account ? Sign-In .
+                </Link>
+      </div>
     </form>
   );
 };
