@@ -79,9 +79,9 @@ function DetectionSphere({ detection, color, size }) {
   // Convert detection position to 3D world coordinates
   const worldPosition = useMemo(() => {
     // Scale and position relative to truck
-    const x = detection.position.x ; // Scale for visibility
+    const x = detection.position.x * 1.5; // Scale for visibility
     const y = detection.position.y  ;  // Offset from ground
-    const z =  detection.position.z; // Keep in same plane for now
+    const z =  detection.position.z; 
 
     return [x, y, z];
   }, [detection.position]);
