@@ -1,0 +1,314 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom fonts */
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-Bold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-BoldItalic.otf') format('opentype');
+  font-weight: bold;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-LightItalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'AeonikProTRIAL';
+  src: url('/AeonikProTRIAL-RegularItalic.otf') format('opentype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+/* Blue gradient auth design with clouds - exactly like the image */
+.auth-container {
+  @apply min-h-max  overflow-hidden;
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+  background-attachment: fixed;
+  font-family: 'AeonikProTRIAL', sans-serif;
+}
+
+.auth-split-layout {
+  @apply min-h-screen flex flex-col lg:flex-row;
+}
+
+.auth-forms-section {
+  @apply flex-1 flex items-center justify-center py-8 px-4;
+ 
+}
+
+.auth-hero-section {
+  @apply flex-1  relative overflow-hidden flex items-center justify-center p-8;
+}
+
+.hero-content {
+  @apply max-w-xl text-center lg:text-left;
+}
+
+.hero-text h1 {
+  @apply text-white;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: bold;
+}
+
+.hero-text p {
+  @apply text-gray-300;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: 300;
+}
+
+.auth-cards-container {
+  @apply flex flex-col md:flex-row gap-8;
+  
+  margin-left: 0;
+}
+auth-subtitle {
+  @apply text-gray-200 mb-4;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: normal;
+  flex-direction: row;
+  display: flex;
+  justify-content: center;
+  align-items: center; 
+}
+
+.auth-card {
+  @apply bg-white rounded-3xl shadow-2xl p-12 border border-white/20 backdrop-blur-sm;
+  min-height: 700px;
+  width: 720px;
+  max-width: 720px;
+}
+
+/* Cloud background elements - more realistic and prominent */
+.cloud {
+  @apply absolute opacity-30;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 100px;
+  position: absolute;
+}
+
+.cloud::before,
+.cloud::after {
+  content: '';
+  @apply absolute bg-white/40 rounded-full;
+}
+
+.cloud-1 {
+  @apply top-20 left-10 w-32 h-16;
+  animation: float 6s ease-in-out infinite;
+}
+
+.cloud-1::before {
+  @apply w-16 h-16 -top-4 -left-4;
+}
+
+.cloud-1::after {
+  @apply w-20 h-20 -top-8 left-8;
+}
+
+.cloud-2 {
+  @apply top-40 right-20 w-24 h-12;
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+.cloud-2::before {
+  @apply w-12 h-12 -top-3 -left-3;
+}
+
+.cloud-2::after {
+  @apply w-16 h-16 -top-6 left-6;
+}
+
+.cloud-3 {
+  @apply bottom-32 left-20 w-28 h-14;
+  animation: float 7s ease-in-out infinite;
+}
+
+.cloud-3::before {
+  @apply w-14 h-14 -top-3 -left-3;
+}
+
+.cloud-3::after {
+  @apply w-20 h-20 -top-7 left-7;
+}
+
+.cloud-4 {
+  @apply bottom-20 right-10 w-20 h-10;
+  animation: float 9s ease-in-out infinite reverse;
+}
+
+.cloud-4::before {
+  @apply w-10 h-10 -top-2 -left-2;
+}
+
+.cloud-4::after {
+  @apply w-14 h-14 -top-5 left-5;
+}
+
+.cloud-5 {
+  @apply top-60 left-1/2 transform -translate-x-1/2 w-36 h-20;
+  animation: float 10s ease-in-out infinite;
+}
+
+.cloud-5::before {
+  @apply w-20 h-20 -top-4 -left-4;
+}
+
+.cloud-5::after {
+  @apply w-24 h-24 -top-9 left-9;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+/* Card content */
+.card-header {
+  @apply text-center mb-8;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: bold;
+}
+
+.card-content {
+  @apply space-y-6;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: normal;
+}
+
+/* Form styles to match the design */
+.auth-form {
+  @apply space-y-4;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-semibold text-gray-800;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: bold;
+}
+
+.form-input {
+  @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-base bg-white;
+}
+
+.form-input:focus {
+  @apply outline-none;
+}
+
+.form-error {
+  @apply text-sm text-red-600 font-medium;
+}
+
+/* Checkbox styles */
+.checkbox-group {
+  @apply flex items-center space-x-3;
+}
+
+.checkbox-input {
+  @apply w-5 h-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500;
+}
+
+.checkbox-label {
+  @apply text-sm text-gray-700;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: normal;
+}
+
+/* Button styles */
+.btn {
+  @apply w-full flex justify-center py-3 px-6 border border-transparent rounded-xl font-bold text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-base;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: bold;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+}
+
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed transform-none;
+}
+
+/* Link button styles */
+.btn-link {
+  @apply bg-transparent border-none text-blue-600 hover:text-blue-500 font-bold p-0;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: bold;
+}
+
+/* Forgot password styles */
+.forgot-password {
+  @apply text-sm text-blue-600 hover:text-blue-500 font-bold;
+  font-family: 'AeonikProTRIAL', sans-serif;
+  font-weight: normal;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .auth-split-layout {
+    @apply flex-col;
+  }
+  
+  .auth-forms-section {
+    @apply py-4;
+  }
+  
+  .auth-hero-section {
+    @apply py-8;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-cards-container {
+    @apply flex-col items-center;
+    width: 90vw;
+  }
+  
+  .auth-card {
+    @apply p-6;
+    min-height: 400px;
+    max-width: 90vw;
+  }
+  
+  .cloud-1,
+  .cloud-2,
+  .cloud-3,
+  .cloud-4,
+  .cloud-5 {
+    @apply transform scale-75;
+  }
+}
