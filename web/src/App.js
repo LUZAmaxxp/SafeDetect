@@ -49,7 +49,7 @@ export default function App() {
 
     wsService.current.on('error', (error) => {
       setConnectionStatus(`Error: ${error.message}`);
-      alert('Connection Error: Failed to connect to detection server');
+     
     });
 
     // Connect to WebSocket server

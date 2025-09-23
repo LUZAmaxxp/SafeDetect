@@ -81,7 +81,7 @@ function DetectionSphere({ detection, color, size }) {
     // Scale and position relative to truck
     const x = detection.position.x * 1.5; // Scale for visibility
     const y = detection.position.y  ;  // Offset from ground
-    const z =  detection.position.z; 
+    const z =  detection.position.z * 1.5; // Scale for visibility
 
     return [x, y, z];
   }, [detection.position]);
