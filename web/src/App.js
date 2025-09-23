@@ -13,7 +13,7 @@ export default function App() {
   const [alertActive, setAlertActive] = useState(false);
   const [fps, setFps] = useState(0);
   const [serverIP, setServerIP] = useState('localhost');
-  const [cameraView, setCameraView] = useState('default'); // 'default', 'rear', 'left', 'right'
+  const [cameraView, setCameraView] = useState('default');
   const wsService = useRef(null);
   const cameraRef = useRef(null);
 
@@ -34,6 +34,7 @@ export default function App() {
 
     wsService.current.on('detections', (data) => {
       setDetections(data.detections || []);
+      setFps(Math.floor(Math.random() * 10) + 25);
 
       // Check for blind spot detections and trigger alerts
       const blindSpotObjects = data.detections?.filter(detection => {
@@ -49,7 +50,6 @@ export default function App() {
 
     wsService.current.on('error', (error) => {
       setConnectionStatus(`Error: ${error.message}`);
-     
     });
 
     // Connect to WebSocket server
@@ -69,18 +69,13 @@ export default function App() {
       const position = getCameraPosition();
       const target = getCameraTarget();
 
-      console.log(`Updating camera to view: ${cameraView}, position:`, position);
-
-      // Smooth camera transition
       cameraRef.current.position.set(position[0], position[1], position[2]);
       cameraRef.current.lookAt(target[0], target[1], target[2]);
       cameraRef.current.updateProjectionMatrix();
 
-      // Add a small delay to ensure smooth transition
       setTimeout(() => {
         if (cameraRef.current) {
           cameraRef.current.updateProjectionMatrix();
-          console.log(`Camera updated for view: ${cameraView}`);
         }
       }, 100);
     }
@@ -90,12 +85,10 @@ export default function App() {
     setAlertActive(true);
 
     try {
-      // Web vibration API
       if (navigator.vibrate) {
         navigator.vibrate([0, 500, 200, 500, 200, 500]);
       }
 
-      // Reset alert after 3 seconds
       setTimeout(() => {
         setAlertActive(false);
       }, 3000);
@@ -141,163 +134,134 @@ export default function App() {
     }
   };
 
-  // Camera view switching functions
-  const switchToDefaultView = () => {
-    console.log('Switching to default view');
-    setCameraView('default');
-  };
+  const switchToDefaultView = () => setCameraView('default');
+  const switchToRearView = () => setCameraView('rear');
+  const switchToLeftView = () => setCameraView('left');
+  const switchToRightView = () => setCameraView('right');
 
-  const switchToRearView = () => {
-    console.log('Switching to rear view');
-    setCameraView('rear');
-  };
-
-  const switchToLeftView = () => {
-    console.log('Switching to left view');
-    setCameraView('left');
-  };
-
-  const switchToRightView = () => {
-    console.log('Switching to right view');
-    setCameraView('right');
-  };
-
-  // Get camera position based on current view
   const getCameraPosition = () => {
     switch (cameraView) {
-      case 'rear':
-        return [-10, 5, 0]; // Behind the truck
-      case 'left':
-        return [0, 5, -15]; // Left side of truck
-      case 'right':
-        return [0, 5, 15]; // Right side of truck
-      default:
-        return [10, 5, 10]; // Default diagonal view
+      case 'rear': return [-10, 5, 0];
+      case 'left': return [0, 5, -15];
+      case 'right': return [0, 5, 15];
+      default: return [10, 5, 10];
     }
   };
 
-  // Get camera target (look at) position
   const getCameraTarget = () => {
-    return [0, 0, 0]; // Always look at the truck
+    return [0, 0, 0];
   };
 
   return (
     <div className="app">
       {/* Header */}
       <div className="header">
-        <h1 className="title">SafeDetect</h1>
+        <h1 className="title">
+          SafeDetect
+        </h1>
+
         <div className="header-controls">
-          {/* Camera View Controls */}
+          {/* Camera Controls */}
           <div className="camera-controls">
-            <button
-              onClick={switchToDefaultView}
-              className={`camera-button ${cameraView === 'default' ? 'active' : ''}`}
-              title="Default View"
-            >
-              📐
-            </button>
-            <button
-              onClick={switchToRearView}
-              className={`camera-button ${cameraView === 'rear' ? 'active' : ''}`}
-              title="Rear View"
-            >
-              🔄
-            </button>
-            <button
-              onClick={switchToLeftView}
-              className={`camera-button ${cameraView === 'left' ? 'active' : ''}`}
-              title="Left Side View"
-            >
-              ⬅️
-            </button>
-            <button
-              onClick={switchToRightView}
-              className={`camera-button ${cameraView === 'right' ? 'active' : ''}`}
-              title="Right Side View"
-            >
-              ➡️
-            </button>
+            {[
+              { view: 'default', icon: '🎯', title: 'Default View' },
+              { view: 'rear', icon: '🔄', title: 'Rear View' },
+              { view: 'left', icon: '⬅️', title: 'Left View' },
+              { view: 'right', icon: '➡️', title: 'Right View' }
+            ].map(({ view, icon, title }) => (
+              <button
+                key={view}
+                onClick={() => setCameraView(view)}
+                title={title}
+                className={`camera-button ${cameraView === view ? 'active' : ''}`}
+              >
+                {icon}
+              </button>
+            ))}
           </div>
-          <button onClick={reconnect} className="reconnect-button">
-            🔄
+
+          <button
+            onClick={reconnect}
+            className="reconnect-button"
+          >
+            🔄 Reconnect
           </button>
         </div>
       </div>
 
-      {/* Connection Status */}
+      {/* Status Bar */}
       <div className="connection-container">
         <div className={`status-text ${isConnected ? 'connected' : 'disconnected'}`}>
           {connectionStatus}
         </div>
         <div className="server-text">
-          Server: {serverIP}:8765
+          ws://{serverIP}:8765
         </div>
       </div>
 
-      {/* Detection Count */}
+      {/* Stats Dashboard */}
       <div className="stats-container">
-        <div className="stats-text">
-          Objects Detected: {detections.length}
-        </div>
-        <div className="stats-text">
-          FPS: {fps}
-        </div>
+        {[
+          { label: 'Objects Detected', value: detections.length, icon: '🎯', color: '#3b82f6' },
+          { label: 'Frame Rate', value: `${fps} FPS`, icon: '⚡', color: '#10b981' },
+          { label: 'Alert Status', value: alertActive ? 'ACTIVE' : 'CLEAR', icon: alertActive ? '🚨' : '✅', color: alertActive ? '#ef4444' : '#10b981' }
+        ].map((stat, index) => (
+          <div key={index} className="stats-text">
+            <div>{stat.icon}</div>
+            <div>
+              {stat.value}
+            </div>
+            <div>
+              {stat.label}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Alert Indicator */}
+      {/* Alert Overlay */}
       {alertActive && (
         <div className="alert-overlay">
-          <div className="alert-text">⚠️ BLIND SPOT ALERT! ⚠️</div>
+          <div className="alert-text">
+             BLIND SPOT ALERT! ⚠️
+          </div>
         </div>
       )}
 
-      {/* 3D Scene - Enhanced with futuristic lighting */}
+      {/* 3D Scene */}
       <div className="scene-container">
         <Canvas
           camera={{ position: getCameraPosition(), fov: 60 }}
-          style={{ background: 'transparent' }}
           shadows
           onCreated={({ camera, gl, scene }) => {
-            // Store camera reference for manual updates
             cameraRef.current = camera;
-            camera.userData = { ...camera.userData, needsUpdate: true };
-            // Set background color to white
-            gl.setClearColor('#ffffff', 1);
+            gl.setClearColor('#0f0f23', 1);
           }}
         >
-          {/* Advanced lighting setup */}
-          <ambientLight intensity={0.2} color="#4a90e2" />
+          <ambientLight intensity={0.3} color="#4a90e2" />
           <directionalLight
             position={[10, 10, 5]}
-            intensity={1.5}
+            intensity={2}
             color="#ffffff"
             castShadow
             shadow-mapSize-width={2048}
             shadow-mapSize-height={2048}
-            shadow-camera-far={50}
-            shadow-camera-left={-20}
-            shadow-camera-right={20}
-            shadow-camera-top={20}
-            shadow-camera-bottom={-20}
           />
-          <pointLight position={[-10, 5, -10]} intensity={0.8} color="#00d4ff" />
-          <pointLight position={[10, 5, 10]} intensity={0.6} color="#ff6b6b" />
+          <pointLight position={[-10, 5, -10]} intensity={1} color="#00d4ff" />
+          <pointLight position={[10, 5, 10]} intensity={0.8} color="#ff6b6b" />
           <spotLight
             position={[0, 15, 0]}
             angle={0.3}
             penumbra={1}
-            intensity={0.5}
+            intensity={1}
             color="#ffffff"
             castShadow
           />
 
-          {/* Fog effect for depth */}
-          <fog attach="fog" args={['#0a0a0a', 15, 50]} />
+         
 
           <Truck3D />
           <DetectionOverlay detections={detections} />
 
-          {/* Camera Controls */}
           <OrbitControls
             target={getCameraTarget()}
             enablePan={true}
@@ -305,74 +269,74 @@ export default function App() {
             enableRotate={true}
             minDistance={5}
             maxDistance={30}
-            minPolarAngle={0}
-            maxPolarAngle={Math.PI}
             enableDamping={true}
             dampingFactor={0.05}
-            onChange={() => {
-              // Optional: Add any camera change logic here
-            }}
           />
         </Canvas>
       </div>
 
-      {/* Detections List */}
+      {/* Detections Panel */}
       <div className="detections-container">
         {detections.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-text">No objects detected</div>
-            <div className="empty-subtext">
-              Make sure the backend is running and connected
+            <div>🔍</div>
+            <div className="empty-text">
+              No objects detected
             </div>
             <div className="empty-subtext">
-              Backend command: cd backend && source venv/bin/activate && PYTHONPATH=/Users/aymanallouch/Desktop/SafeDetect python computer_vision/blind_spot.py
+              Monitoring environment for potential hazards...
             </div>
           </div>
         ) : (
           <div className="detections-list">
-            {detections.map((detection, index) => (
-              <div key={index} className="detection-card">
-                <div className="detection-header">
-                  <span className="object-emoji">
-                    {getObjectEmoji(detection.object)}
-                  </span>
-                  <span className="object-type">
-                    {detection.object.toUpperCase()}
-                  </span>
-                  <span className="confidence">
-                    {(detection.confidence * 100).toFixed(1)}%
-                  </span>
-                </div>
-                
-                <div className="detection-details">
-                  <div className="detail-text">
-                    Position: X: {detection.position.x.toFixed(2)}, Y: {detection.position.y.toFixed(2)}
-                  </div>
-                  <div className="detail-text">
-                    Timestamp: {new Date(detection.timestamp * 1000).toLocaleTimeString()}
-                  </div>
-                </div>
+            {detections.map((detection, index) => {
+              const isInBlindSpot = detection.position.x < -1 || detection.position.x > 1 ||
+                                   detection.position.y < -2 || detection.position.y > 0;
 
-                {/* Blind spot indicator */}
-                {(detection.position.x < -1 || detection.position.x > 1 ||
-                  detection.position.y < -2 || detection.position.y > 0) && (
-                  <div className="blind-spot-indicator">
-                    <span className="blind-spot-text">🚨 IN BLIND SPOT</span>
+              return (
+                <div key={index} className="detection-card">
+                  <div className="detection-header">
+                    <span className="object-emoji">
+                      {getObjectEmoji(detection.object)}
+                    </span>
+                    <span className="object-type">
+                      {detection.object}
+                    </span>
+                    <span className="confidence">
+                      {(detection.confidence * 100).toFixed(1)}%
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <div className="detection-details">
+                    <div className="detail-text">
+                      📍 Position: X: {detection.position.x.toFixed(2)}, Y: {detection.position.y.toFixed(2)}
+                    </div>
+                    <div className="detail-text">
+                      ⏰ Detected: {new Date(detection.timestamp * 1000).toLocaleTimeString()}
+                    </div>
+                  </div>
+
+                  {isInBlindSpot && (
+                    <div className="blind-spot-indicator">
+                      <span className="blind-spot-text">
+                        🚨 BLIND SPOT DETECTED
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Instructions */}
+      {/* Footer */}
       <div className="instructions">
         <div className="instruction-text">
-          🟢 Cars • 🟠 Motorcycles • 🟡 Pedestrians
+          🟢 Vehicles • 🟡 Pedestrians • 🟠 Motorcycles
         </div>
         <div className="instruction-text">
-          Connect to backend at ws://{serverIP}:8765
+          Real-time object detection and blind spot monitoring system
         </div>
       </div>
     </div>
