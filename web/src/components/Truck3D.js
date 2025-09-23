@@ -1,10 +1,13 @@
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo } from 'react';
+import { useFrame, useLoader } from '@react-three/fiber';
+import { TextureLoader } from 'three/src/loaders/TextureLoader';
 import * as THREE from 'three';
 
 export default function Truck3D() {
   const truckRef = useRef();
   const glowRef = useRef();
+
+
 
   // Truck dimensions (in meters, scaled for visualization)
   const truckConfig = {
@@ -37,15 +40,17 @@ export default function Truck3D() {
         />
       </mesh>
 
-      {/* Main truck body - Futuristic metallic */}
+      {/* Main truck body - Realistic metallic with reflections */}
       <mesh position={[0, truckConfig.height / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[truckConfig.length, truckConfig.height, truckConfig.width]} />
         <meshStandardMaterial
-          color="#2c3e50"
-          metalness={0.8}
-          roughness={0.2}
+          color="#4a5568"
+          metalness={0.9}
+          roughness={0.1}
           emissive="#001122"
-          emissiveIntensity={0.1}
+          emissiveIntensity={0.05}
+          clearcoat={0.3}
+          clearcoatRoughness={0.1}
         />
       </mesh>
 

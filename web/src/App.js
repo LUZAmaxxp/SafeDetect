@@ -257,10 +257,12 @@ export default function App() {
           camera={{ position: getCameraPosition(), fov: 60 }}
           style={{ background: 'transparent' }}
           shadows
-          onCreated={({ camera, gl }) => {
+          onCreated={({ camera, gl, scene }) => {
             // Store camera reference for manual updates
             cameraRef.current = camera;
             camera.userData = { ...camera.userData, needsUpdate: true };
+            // Set background color to white
+            gl.setClearColor('#ffffff', 1);
           }}
         >
           {/* Advanced lighting setup */}
