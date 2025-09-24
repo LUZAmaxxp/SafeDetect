@@ -58,15 +58,19 @@ class BlindSpotDetector:
 
     def calculate_position(self, bbox: List[float], frame_width: int, frame_height: int) -> Dict[str, float]:
         """Calculate relative position of detected object"""
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2, z = bbox
         x_center = (x1 + x2) / 2 / frame_width
         y_center = (y1 + y2) / 2 / frame_height
+        z = (x2 - x1) / frame_width  # Relative size as a proxy for distance
 
         # Convert to world coordinates (meters)
         world_x = x_center * POSITION_SCALE["x"]
         world_y = y_center * POSITION_SCALE["y"]
+        world_z = z * POSITION_SCALE["z"]
 
-        return {"x": world_x, "y": world_y}
+
+
+        return {"x": world_x, "y": world_y , "z": world_z}
 
     def draw_detections(self, frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
         """Draw bounding boxes and blind spot zones on frame"""
@@ -182,7 +186,7 @@ class BlindSpotDetector:
 
         return detections
 
-    def start_camera(self, camera_id: int = 0):
+    def start_camera(self, camera_id: int = 1):
         """Start video capture from camera"""
         self.cap = cv2.VideoCapture(camera_id)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)

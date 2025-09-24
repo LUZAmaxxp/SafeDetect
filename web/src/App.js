@@ -259,7 +259,7 @@ export default function App() {
 
          
 
-          <Truck3D />
+          <Truck3D detections={detections} />
           <DetectionOverlay detections={detections} />
 
           <OrbitControls

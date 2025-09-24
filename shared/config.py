@@ -77,6 +77,7 @@ TRUCK_DIMENSIONS = {
 
 # Position mapping (camera coordinates to 3D world coordinates)
 POSITION_SCALE = {
-    "x": 3.0,  # meters per camera width unit (adjusted for web interface)
-    "y": 0.8   # meters per camera height unit (adjusted for web interface)
+    "x": 1.5,  # meters per camera width unit (adjusted for web interface)
+    "y": 1,
+    "z": 1.0   # meters per camera depth unit (adjusted for web interface)
 }
