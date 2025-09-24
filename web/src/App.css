@@ -746,9 +746,9 @@
   }
 
   .alert-overlay {
-    top: 15px;
-    left: 15px;
-    padding: 15px 20px;
+    top: 5px;
+    left: 5px;
+    padding: 5px 10px;
     max-width: calc(100vw - 30px);
     min-width: 200px;
   }
