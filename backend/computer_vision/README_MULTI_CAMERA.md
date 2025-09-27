@@ -1,7 +1,7 @@
 # 🔍 SafeDetect Multi-Camera Blind Spot Detection System
 
 ## Overview
-The Multi-Camera Blind Spot Detection System supports simultaneous monitoring from multiple camera feeds, providing comprehensive blind spot coverage for vehicles.
+The Multi-Camera Blind Spot Detection System supports simultaneous monitoring from multiple camera feeds, providing comprehensive blind spot coverage for vehicles. Now integrated with Kafka for reliable, scalable backend communication.
 
 ## 🚀 Features
 
@@ -15,7 +15,8 @@ The Multi-Camera Blind Spot Detection System supports simultaneous monitoring fr
 - **YOLOv8 Integration**: Advanced object detection
 - **Zone-Aware Alerts**: Camera-specific blind spot warnings
 - **Performance Monitoring**: Real-time FPS and detection tracking
-- **WebSocket Streaming**: Live data to web/mobile interfaces
+- **Kafka Streaming**: Reliable message queue communication to Node.js backend
+- **WebSocket Broadcasting**: Real-time data to web/mobile interfaces via Node.js proxy
 
 ## 📹 Camera Configuration
 
@@ -76,14 +77,30 @@ This will:
 
 ## 🚀 Usage
 
-### Start the Multi-Camera System
+### Complete System Startup
+
+1. **Start Kafka** (required for communication):
 ```bash
-cd backend/computer_vision
-python blind_spot.py
+cd backend
+docker-compose up -d
 ```
 
-### Start with Dummy Video (for testing)
-The system automatically falls back to dummy video if no cameras are available.
+2. **Start Node.js Backend** (Kafka consumer + WebSocket server):
+```bash
+cd web/backend
+node server.js
+```
+
+3. **Start Multi-Camera Detection**:
+```bash
+cd backend/computer_vision
+python multi_camera_detector.py
+```
+
+### Testing with Dummy Video
+The system automatically falls back to dummy video if no cameras are available. For testing:
+- Ensure `test_MJPG.avi` or similar video file exists in the backend directory
+- The system will use video playback instead of live cameras
 
 ### Monitor System Status
 The system provides real-time status information:
@@ -91,18 +108,20 @@ The system provides real-time status information:
 - Detection performance (FPS)
 - Active object detections
 - Blind spot alerts
+- Kafka producer status
 
 ## 📊 System Architecture
 
 ### Components
-1. **MultiCameraDetector**: Core detection engine
-2. **BlindSpotSystem**: Main system controller
-3. **DetectionWebSocketServer**: WebSocket communication
-4. **Configuration**: Camera and zone settings
+1. **MultiCameraDetector**: Core detection engine with YOLOv8
+2. **DetectionKafkaProducer**: Kafka producer for reliable messaging
+3. **Node.js Backend**: Kafka consumer + WebSocket server
+4. **React Frontend**: 3D visualization and user interface
+5. **Configuration**: Camera, zone, and Kafka settings
 
 ### Data Flow
 ```
-Cameras → MultiCameraDetector → Object Detection → Zone Analysis → WebSocket Broadcast → UI Display
+Cameras → MultiCameraDetector → YOLOv8 Detection → Zone Analysis → Kafka Producer → Kafka Topic → Node.js Consumer → WebSocket → React Frontend
 ```
 
 ## 🔧 Troubleshooting
@@ -113,6 +132,12 @@ Cameras → MultiCameraDetector → Object Detection → Zone Analysis → WebSo
 3. **Camera Index**: Try different camera_id values (0, 1, 2, etc.)
 4. **System Settings**: Check macOS camera permissions
 
+### Kafka Connection Issues
+1. **Start Kafka**: Ensure `docker-compose up -d` is running
+2. **Check Topic**: Verify 'detections' topic exists
+3. **Network**: Ensure localhost:9092 is accessible
+4. **Logs**: Check producer/consumer logs for connection errors
+
 ### Performance Issues
 1. **Reduce Resolution**: Lower CAMERA_WIDTH/HEIGHT in config
 2. **Adjust FPS**: Reduce FPS_TARGET for better performance
@@ -122,6 +147,7 @@ Cameras → MultiCameraDetector → Object Detection → Zone Analysis → WebSo
 1. **Lighting**: Ensure good lighting conditions
 2. **Object Distance**: Objects should be within camera range
 3. **Model Training**: YOLOv8 model may need fine-tuning for specific objects
+4. **Kafka Flow**: Verify messages are being produced/consumed
 
 ## 📱 Integration
 
@@ -129,10 +155,11 @@ Cameras → MultiCameraDetector → Object Detection → Zone Analysis → WebSo
 - Access via web browser at `http://localhost:3000`
 - Real-time camera feeds and detection overlays
 - 3D truck visualization with blind spot zones
+- Connects to WebSocket at `ws://localhost:8081`
 
-### Mobile App
-- Connect to WebSocket server at `ws://localhost:8765`
-- Receive real-time detection alerts
+### Mobile/Web Apps
+- Connect to WebSocket server at `ws://localhost:8081`
+- Receive real-time detection alerts via Kafka
 - Mobile-optimized interface
 
 ## 🔧 Configuration Options

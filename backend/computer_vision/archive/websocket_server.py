@@ -1,6 +1,10 @@
 """
-WebSocket Server for Blind Spot Detection System
+WebSocket Server for Blind Spot Detection System (DEPRECATED)
 Streams detection results to connected clients in real-time
+
+DEPRECATED: This server has been replaced by Kafka-based communication.
+Use the Kafka producer in detection.py for sending detections.
+The WebSocket functionality is disabled but kept for reference.
 """
 
 import asyncio

@@ -16,7 +16,6 @@ from shared.config import *
 import pygame
 from typing import List, Dict, Tuple, Optional
 import logging
-from kafka_producer import DetectionKafkaProducer
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -46,10 +45,6 @@ class MultiCameraDetector:
             "right": {"status": "not_connected", "cap": None},
             "rear": {"status": "not_connected", "cap": None}
         }
-
-        # Initialize Kafka producer
-        self.kafka_producer = DetectionKafkaProducer()
-        self.kafka_producer.start_producer()
 
     def _create_beep_sound(self) -> pygame.mixer.Sound:
         """Create a beep sound for alerts"""
@@ -156,7 +151,7 @@ class MultiCameraDetector:
             }
         return status
 
-    async def process_all_cameras(self) -> List[Dict]:
+    async def process_all_cameras(self, websocket_server=None) -> List[Dict]:
         """Process frames from all active cameras"""
         all_detections = []
 
@@ -197,9 +192,9 @@ class MultiCameraDetector:
 
                 all_detections.extend(detections)
 
-                # Send detections via Kafka
-                if detections:
-                    self.kafka_producer.send_detections(detections)
+                # Send detections via WebSocket if server is provided
+                if websocket_server and detections:
+                    await websocket_server.broadcast_detections(detections)
 
             except Exception as e:
                 logger.error(f"❌ Error processing {zone} camera: {e}")
@@ -243,11 +238,6 @@ class MultiCameraDetector:
             self.camera_status[zone]["status"] = "not_connected"
             self.camera_status[zone]["cap"] = None
 
-        # Close Kafka producer
-        if self.kafka_producer:
-            self.kafka_producer.stop_producer()
-            logger.info("Kafka producer closed")
-
         cv2.destroyAllWindows()
         logger.info("✅ Multi-camera system stopped")
 
@@ -268,42 +258,42 @@ async def test_multi_camera_system():
             logger.info(f"  {zone}: {info['name']} (ID: {info['camera_id']}) - {CAMERA_STATUS.get(info['status'], info['status'])}")
 
         # Process frames for a few seconds
-        logger.info("🎥 Starting detection loop... (Press Ctrl+C to stop)")
+        logger.info("🎥 Starting detection loop...")
+        start_time = time.time()
 
-        try:
-            while True:  # Run continuously
-                detections = await detector.process_all_cameras()
+        while time.time() - start_time < 10:  # Run for 10 seconds
+            detections = await detector.process_all_cameras()
 
-                # Calculate FPS
-                detector.frame_count += 1
-                current_time = time.time()
-                if current_time - detector.last_time >= 1.0:
-                    detector.fps = detector.frame_count / (current_time - detector.last_time)
-                    detector.frame_count = 0
-                    detector.last_time = current_time
+            # Calculate FPS
+            detector.frame_count += 1
+            current_time = time.time()
+            if current_time - detector.last_time >= 1.0:
+                detector.fps = detector.frame_count / (current_time - detector.last_time)
+                detector.frame_count = 0
+                detector.last_time = current_time
 
-                    # Log performance
-                    logger.info(f"FPS: {detector.fps:.1f} | Active detections: {len(detections)}")
+                # Log performance
+                logger.info(f"FPS: {detector.fps:.1f} | Active detections: {len(detections)}")
 
-                # Play alert sound if objects in blind spots
-                blind_spot_detections = []
-                for detection in detections:
-                    zone = detection["camera_zone"]
-                    x_pos = detection["position"]["x"] / POSITION_SCALE["x"]
-                    y_pos = detection["position"]["y"] / POSITION_SCALE["y"]
+            # Play alert sound if objects in blind spots
+            blind_spot_detections = []
+            for detection in detections:
+                zone = detection["camera_zone"]
+                x_pos = detection["position"]["x"] / POSITION_SCALE["x"]
+                y_pos = detection["position"]["y"] / POSITION_SCALE["y"]
 
-                    if detector.is_in_blind_spot(x_pos, y_pos, zone):
-                        blind_spot_detections.append(detection)
+                if detector.is_in_blind_spot(x_pos, y_pos, zone):
+                    blind_spot_detections.append(detection)
 
-                if blind_spot_detections:
-                    detector.play_alert_sound()
-                    logger.warning(f"🚨 BLIND SPOT ALERT! Objects detected: {len(blind_spot_detections)}")
+            if blind_spot_detections:
+                detector.play_alert_sound()
+                logger.warning(f"🚨 BLIND SPOT ALERT! Objects detected: {len(blind_spot_detections)}")
 
-                # Small delay to maintain target FPS
-                await asyncio.sleep(1/FPS_TARGET)
+            # Small delay to maintain target FPS
+            await asyncio.sleep(1/FPS_TARGET)
 
-        except KeyboardInterrupt:
-            logger.info("⏹️  Test interrupted by user")
+    except KeyboardInterrupt:
+        logger.info("⏹️  Test interrupted by user")
     except Exception as e:
         logger.error(f"❌ Test error: {e}")
     finally:

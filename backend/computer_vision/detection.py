@@ -14,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.config import *
 import pygame
 from typing import List, Dict, Tuple
+from kafka_producer import DetectionKafkaProducer
 
 
 class BlindSpotDetector:
@@ -29,6 +30,10 @@ class BlindSpotDetector:
         # Initialize pygame for audio alerts
         pygame.mixer.init()
         self.alert_sound = self._create_beep_sound()
+
+        # Initialize Kafka producer
+        self.kafka_producer = DetectionKafkaProducer()
+        self.kafka_producer.start_producer()
 
         # Detection history for smoothing
         self.detection_history = []
@@ -147,7 +152,7 @@ class BlindSpotDetector:
         except:
             pass  # Ignore audio errors
 
-    async def process_frame(self, websocket_server=None) -> List[Dict]:
+    async def process_frame(self) -> List[Dict]:
         """Process a single frame and return detections"""
         ret, frame = self.cap.read()
         if not ret:
@@ -180,9 +185,9 @@ class BlindSpotDetector:
                     }
                     detections.append(detection)
 
-        # Send detections via WebSocket if server is provided
-        if websocket_server and detections:
-            await websocket_server.broadcast_detections(detections)
+        # Send detections via Kafka
+        if detections:
+            self.kafka_producer.send_detections(detections)
 
         return detections
 
@@ -203,6 +208,8 @@ class BlindSpotDetector:
         if self.cap:
             self.cap.release()
         cv2.destroyAllWindows()
+        if self.kafka_producer:
+            self.kafka_producer.stop_producer()
 
 
 async def main():

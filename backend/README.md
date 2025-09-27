@@ -1,213 +1,166 @@
-# SafeDetect Backend - Blind Spot Detection System
+# SafeDetect Backend - Computer Vision & Detection System
 
-This directory contains the Python backend for the SafeDetect blind spot detection system, including computer vision, WebSocket server, and integration components.
+SafeDetect is a real-time blind spot detection system for vehicles using computer vision. The backend processes video feeds from multiple cameras, detects objects using YOLOv8, and streams results via Kafka for reliable communication to the frontend.
 
-## Components
+## Architecture Overview
 
-### 1. Computer Vision (`computer_vision/`)
-- **`detection.py`**: YOLOv8-based object detection with blind spot zone analysis
-- **`websocket_server.py`**: WebSocket server for real-time detection streaming
-- **`blind_spot.py`**: Main integration system combining detection and WebSocket
+1. **Computer Vision Backend (Python)**:
+   - Uses YOLOv8 for object detection (cars, motorcycles, persons).
+   - Supports multi-camera setup (left, right, rear) for comprehensive blind spot monitoring.
+   - Produces detection results to Kafka topic 'detections'.
 
-### 2. Configuration (`shared/`)
-- **`config.py`**: Shared configuration for detection parameters, WebSocket settings, and 3D visualization
+2. **Message Queue (Kafka)**:
+   - Handles reliable, scalable communication between Python backend and Node.js proxy.
+   - Topic: 'detections' (JSON messages with timestamp, detections array).
 
-### 3. Dependencies (`requirements.txt`)
-- All Python dependencies required for the system
+3. **Node.js Proxy Backend**:
+   - Consumes from Kafka.
+   - Serves WebSocket connections to the React frontend for real-time updates.
 
-## Installation
+4. **React Frontend (web/)**:
+   - 3D visualization using Three.js.
+   - Displays truck model with detected objects in blind spots.
+   - Real-time alerts and stats.
 
-1. **Create Python Virtual Environment** (recommended):
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+## Prerequisites
 
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- Python 3.11+
+- Node.js 18+
+- Docker (for Kafka)
+- Virtual cameras or physical USB cameras for testing
+- macOS/Linux (tested on macOS Monterey)
 
-3. **Download YOLOv8 Model**:
-   The system will automatically download the YOLOv8 nano model on first run, or you can manually download:
-   ```bash
-   # The model will be downloaded automatically when needed
-   ```
+## Setup Instructions
 
-## Usage
+### 1. Clone and Navigate
+```
+git clone <repo-url>
+cd SafeDetect
+```
 
-### Running the Complete System
+### 2. Start Kafka (via Docker)
+The backend includes a `docker-compose.yml` for Zookeeper + Kafka.
 
-1. **With Dummy Video** (for testing):
-   ```bash
-   python backend/computer_vision/blind_spot.py
-   ```
+```
+cd backend
+docker-compose up -d
+```
 
-2. **With Real Camera**:
-   ```bash
-   python -c "
-   import asyncio
-   from backend.computer_vision.blind_spot import BlindSpotSystem
+Verify:
+```
+docker ps  # Should show zookeeper and kafka containers
+```
 
-   async def main():
-       system = BlindSpotSystem()
-       await system.start(use_camera=True, camera_id=0)
+Create topic (if not auto-created):
+```
+docker-compose exec kafka kafka-topics --create --topic detections --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+```
 
-   asyncio.run(main())
-   "
-   ```
+### 3. Setup Python Backend
+Create virtual environment:
+```
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-### Running Individual Components
+Install dependencies:
+```
+pip install -r requirements.txt
+```
 
-1. **Detection Only**:
-   ```bash
-   python backend/computer_vision/detection.py
-   ```
+### 4. Setup Node.js Backend (for web/)
+```
+cd web/backend
+npm install
+```
 
-2. **WebSocket Server Only**:
-   ```bash
-   python backend/computer_vision/websocket_server.py
-   ```
+### 5. Setup React Frontend
+```
+cd web
+npm install
+```
+
+### 6. Run the System
+
+Open multiple terminals:
+
+**Terminal 1 - Kafka (already running from step 2)**
+
+**Terminal 2 - Node.js Backend**:
+```
+cd web/backend
+node server.js
+```
+- Starts WebSocket server on ws://localhost:8081
+- Consumes from Kafka 'detections' topic
+
+**Terminal 3 - Python Detection**:
+```
+cd backend
+source venv/bin/activate
+python computer_vision/multi_camera_detector.py
+```
+- Starts multi-camera processing (left: ID 0, right: ID 1, rear: ID 2)
+- Connects cameras, runs YOLOv8 detection
+- Sends detections to Kafka continuously (Ctrl+C to stop)
+
+**Terminal 4 - React Frontend**:
+```
+cd web
+npm start
+```
+- Opens http://localhost:3000
+- Connects to WebSocket at ws://localhost:8081
+- Displays 3D truck with real-time detections and alerts
+
+## How It Works
+
+1. **Camera Input**: OpenCV captures frames from USB cameras (or use dummy video for testing).
+
+2. **Object Detection**: YOLOv8 processes each frame to detect objects (cars, motorcycles, persons) with confidence > 0.5.
+
+3. **Blind Spot Analysis**: Calculates object positions relative to truck zones (left, right, rear) using config in `shared/config.py`.
+
+4. **Kafka Production**: Detection results (JSON: type='detections', timestamp, detections array with position, confidence, zone) sent to Kafka topic.
+
+5. **Kafka Consumption**: Node.js backend subscribes to topic, receives messages.
+
+6. **WebSocket Broadcasting**: Node.js forwards detections via WebSocket to connected frontend clients.
+
+7. **Frontend Visualization**:
+   - 3D truck model (Three.js) shows detected objects as colored spheres (green=car, orange=motorcycle, yellow=person).
+   - Positions mapped from camera coordinates to 3D world space.
+   - Alerts: Audio beep + visual warning for blind spot objects.
+   - Stats panel: FPS, camera status, detection count.
 
 ## Configuration
 
-Edit `shared/config.py` to modify:
-- WebSocket host/port
-- Blind spot zone coordinates
-- Detection confidence thresholds
-- Camera settings
-- Alert parameters
-
-## WebSocket API
-
-### Connection
-- **URL**: `ws://localhost:8765`
-- **Protocol**: JSON over WebSocket
-
-### Message Format
-```json
-{
-  "type": "detections",
-  "timestamp": 1234567890.123,
-  "detections": [
-    {
-      "object": "car",
-      "position": { "x": 2.5, "y": -1.0 },
-      "confidence": 0.85,
-      "bbox": [100, 200, 300, 400],
-      "class_id": 2,
-      "timestamp": 1234567890.123
-    }
-  ]
-}
-```
-
-### Client Commands
-- **Ping**: `{"type": "ping"}`
-- **Status**: `{"type": "status"}`
-- **Get Config**: `{"type": "command", "command": "get_config"}`
-
-## Hardware Requirements
-
-### Minimum Requirements
-- **CPU**: 2-core processor (Intel i3 or equivalent)
-- **RAM**: 4GB
-- **Storage**: 2GB free space
-- **Camera**: USB webcam or Raspberry Pi camera module
-
-### Recommended Requirements
-- **CPU**: 4-core processor (Intel i5 or equivalent)
-- **RAM**: 8GB
-- **GPU**: NVIDIA GPU with CUDA support (for faster YOLOv8 inference)
-- **Camera**: Multiple wide-angle cameras for comprehensive coverage
-
-## Performance
-
-- **Target FPS**: 15 FPS
-- **Resolution**: 640x480 (configurable)
-- **Latency**: <100ms from detection to web app
-- **Concurrent Clients**: Up to 10 web browsers
+- `shared/config.py`: Blind spot zones, object classes, camera IDs, Kafka settings (localhost:9092, topic='detections').
+- Adjust `CAMERA_CONFIG` for different camera IDs.
+- For dummy testing: Modify `multi_camera_detector.py` to use video files instead of live cameras.
 
 ## Troubleshooting
 
-### Common Issues
+- **No Cameras Detected**: Check USB connections, try `ls /dev/video*`. Use dummy video: replace `cv2.VideoCapture(camera_id)` with `cv2.VideoCapture('test_video.mp4')`.
+- **Kafka Issues**: Check `docker logs kafka`. Ensure topic exists.
+- **No Detections in Frontend**: Verify Node.js logs for Kafka consumption, browser console for WebSocket connection.
+- **Performance**: YOLOv8 on CPU; for better FPS, use GPU (install torch with CUDA).
+- **Alerts Not Playing**: Ensure pygame audio works (test with simple script).
 
-1. **Camera Not Found**:
-   - Check camera connection
-   - Verify camera permissions
-   - Try different camera ID (0, 1, 2, etc.)
+## Files Structure
 
-2. **Low FPS**:
-   - Reduce camera resolution in config
-   - Use GPU acceleration if available
-   - Close other applications
-
-3. **WebSocket Connection Failed**:
-   - Check if port 8765 is available
-   - Verify firewall settings
-   - Ensure web app is accessible on same network
-
-4. **YOLOv8 Model Download Issues**:
-   - Check internet connection
-   - Try manual download of model file
-   - Verify disk space
-
-### Debug Mode
-
-Enable debug logging by modifying the logging level in the scripts:
-```python
-logging.basicConfig(level=logging.DEBUG)
-```
+- `backend/computer_vision/multi_camera_detector.py`: Main multi-camera logic.
+- `backend/computer_vision/kafka_producer.py`: Kafka producer class.
+- `backend/computer_vision/detection.py`: Single-camera fallback.
+- `backend/computer_vision/archive/`: Legacy WebSocket files.
+- `web/backend/server.js`: Kafka consumer + WebSocket server.
+- `web/src/services/WebSocketService.js`: Frontend WebSocket client.
 
 ## Testing
 
-1. **Unit Tests**: Run individual components
-2. **Integration Tests**: Test complete system with dummy video
-3. **Performance Tests**: Monitor FPS and latency
-4. **Network Tests**: Verify WebSocket communication
+- Run `python backend/computer_vision/test_multi_camera.py` to check camera connections.
+- Use dummy objects in view for detection testing.
+- Monitor Kafka: `docker exec -it kafka kafka-console-consumer --topic detections --bootstrap-server localhost:9092 --from-beginning`.
 
-## Deployment
-
-### Raspberry Pi Setup
-1. Install Raspberry Pi OS
-2. Enable camera interface in raspi-config
-3. Install Python dependencies
-4. Run as service for continuous operation
-
-### Production Deployment
-1. Use production WSGI server (Gunicorn)
-2. Set up proper logging
-3. Configure auto-restart on failure
-4. Monitor system resources
-
-## API Reference
-
-### BlindSpotDetector Class
-- `start_camera(camera_id)`: Start real camera
-- `start_dummy_video(video_path)`: Start dummy video
-- `process_frame(websocket_server)`: Process single frame
-- `is_in_blind_spot(x, y, zone)`: Check blind spot zones
-- `play_alert_sound()`: Play audio alert
-
-### DetectionWebSocketServer Class
-- `start_server()`: Start WebSocket server
-- `stop_server()`: Stop WebSocket server
-- `broadcast_detections(detections)`: Send detections to clients
-- `get_status()`: Get server status
-
-### BlindSpotSystem Class
-- `start(use_camera, camera_id)`: Start complete system
-- `stop()`: Stop complete system
-- `get_status()`: Get system status
-
-## Contributing
-
-1. Follow PEP 8 style guidelines
-2. Add docstrings to all functions
-3. Include type hints
-4. Test changes thoroughly
-5. Update documentation for API changes
-
-## License
-
-This project is licensed under the MIT License - see the main README for details.
+For more details, see `backend/computer_vision/README_MULTI_CAMERA.md` and `web/README.md`.

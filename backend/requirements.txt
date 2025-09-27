@@ -11,6 +11,9 @@ torchvision>=0.15.0
 # WebSocket communication
 websockets>=10.0
 
+# Kafka communication
+kafka-python>=2.0.0
+
 # Additional utilities
 asyncio-mqtt>=0.13.0
 pydantic>=2.0.0
