@@ -19,7 +19,7 @@ export default function App() {
 
   useEffect(() => {
     // Initialize WebSocket service
-    wsService.current = new WebSocketService(`ws://${serverIP}:8765`);
+    wsService.current = new WebSocketService(`ws://${serverIP}:8081`);
 
     // Set up event listeners
     wsService.current.on('connected', () => {
@@ -118,7 +118,7 @@ export default function App() {
   const reconnect = () => {
     if (wsService.current) {
       wsService.current.disconnect();
-      wsService.current = new WebSocketService(`ws://${serverIP}:8765`);
+      wsService.current = new WebSocketService(`ws://${serverIP}:8081`);
       wsService.current.on('connected', () => {
         setIsConnected(true);
         setConnectionStatus('Connected');
@@ -197,7 +197,7 @@ export default function App() {
           {connectionStatus}
         </div>
         <div className="server-text">
-          ws://{serverIP}:8765
+          ws://{serverIP}:8081
         </div>
       </div>
 

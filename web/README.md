@@ -1,11 +1,19 @@
 # SafeDetect Web App
 
-A React.js web application for real-time object detection and blind spot monitoring.
+A React.js web application for real-time object detection and blind spot monitoring using Kafka for backend communication.
+
+## Architecture
+
+The web app consists of two parts:
+
+1. **React Frontend**: 3D visualization and user interface
+2. **Node.js Backend**: Kafka consumer + WebSocket server for real-time communication
 
 ## Features
 
 - **Real-time 3D Visualization**: Interactive 3D truck model with object detection overlays
-- **WebSocket Communication**: Real-time connection to the detection backend
+- **Kafka Integration**: Reliable backend communication via Kafka message queue
+- **WebSocket Streaming**: Real-time updates from Node.js backend to React frontend
 - **Blind Spot Monitoring**: Visual and audio alerts for objects in blind spots
 - **Responsive Design**: Works on desktop and mobile browsers
 - **Modern UI/UX**: Clean dark theme with intuitive user experience
@@ -15,11 +23,14 @@ A React.js web application for real-time object detection and blind spot monitor
 - **React 18**: Modern React with hooks
 - **React Three Fiber**: 3D graphics rendering
 - **Three.js**: 3D graphics library
+- **Node.js**: Backend server with Kafka consumer
+- **Kafka.js**: Kafka client for Node.js
+- **ws**: WebSocket library for Node.js
 - **Webpack**: Module bundler
-- **WebSocket**: Real-time communication
 
 ## Installation
 
+### Frontend (React)
 1. Navigate to the web directory:
    ```bash
    cd web
@@ -30,30 +41,63 @@ A React.js web application for real-time object detection and blind spot monitor
    npm install
    ```
 
-3. Start the development server:
+### Backend (Node.js)
+1. Navigate to the web backend directory:
    ```bash
-   npm start
+   cd web/backend
    ```
 
-4. Open your browser and navigate to `http://localhost:3000`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
 ## Usage
 
-1. **Start the Backend**: Make sure the Python detection backend is running:
+### Complete System Startup
+
+1. **Start Kafka** (see main backend README):
    ```bash
-   cd ../backend
-   source venv/bin/activate
-   PYTHONPATH=/Users/aymanallouch/Desktop/SafeDetect python computer_vision/blind_spot.py
+   cd backend
+   docker-compose up -d
    ```
 
-2. **Connect**: The web app will automatically connect to `ws://localhost:8765`
+2. **Start Node.js Backend** (Kafka consumer + WebSocket server):
+   ```bash
+   cd web/backend
+   node server.js
+   ```
+   - Consumes from Kafka topic 'detections'
+   - Serves WebSocket on ws://localhost:8081
 
-3. **View Detections**: Objects will appear as colored spheres around the 3D truck model:
-   - 🟢 Green spheres: Cars
-   - 🟠 Orange spheres: Motorcycles  
-   - 🟡 Yellow spheres: Pedestrians
+3. **Start Python Detection Backend**:
+   ```bash
+   cd backend
+   source venv/bin/activate
+   python computer_vision/multi_camera_detector.py
+   ```
+   - Processes camera feeds
+   - Sends detections to Kafka
 
-4. **Blind Spot Alerts**: Objects in blind spots will trigger visual alerts and browser notifications
+4. **Start React Frontend**:
+   ```bash
+   cd web
+   npm start
+   ```
+   - Opens http://localhost:3000
+   - Connects to WebSocket at ws://localhost:8081
+
+### View Detections
+Objects will appear as colored spheres around the 3D truck model:
+- 🟢 Green spheres: Cars
+- 🟠 Orange spheres: Motorcycles
+- 🟡 Yellow spheres: Pedestrians
+
+### Blind Spot Alerts
+Objects in blind spots will trigger:
+- Visual alerts on screen
+- Browser notifications (if permitted)
+- Audio alerts (if enabled)
 
 ## Controls
 
@@ -63,7 +107,7 @@ A React.js web application for real-time object detection and blind spot monitor
 
 ## Development
 
-### Available Scripts
+### Available Scripts (Frontend)
 
 - `npm start`: Start development server
 - `npm run build`: Build for production
@@ -73,20 +117,54 @@ A React.js web application for real-time object detection and blind spot monitor
 
 ```
 web/
+├── backend/                # Node.js backend
+│   ├── server.js          # Kafka consumer + WebSocket server
+│   ├── kafka_config.js    # Kafka configuration
+│   └── package.json       # Node.js dependencies
 ├── public/
-│   └── index.html          # HTML entry point
+│   └── index.html         # HTML entry point
 ├── src/
 │   ├── components/
-│   │   ├── Truck3D.js      # 3D truck model component
+│   │   ├── Truck3D.js     # 3D truck model component
 │   │   └── DetectionOverlay.js # 3D detection spheres
 │   ├── services/
 │   │   └── WebSocketService.js # WebSocket communication
-│   ├── App.js              # Main application component
-│   ├── App.css             # Application styles
-│   └── index.js            # React entry point
-├── package.json            # Dependencies and scripts
-├── webpack.config.js       # Webpack configuration
-└── README.md              # This file
+│   ├── App.js             # Main application component
+│   ├── App.css            # Application styles
+│   └── index.js           # React entry point
+├── package.json           # React dependencies and scripts
+├── webpack.config.js      # Webpack configuration
+└── README.md             # This file
+```
+
+## How It Works
+
+1. **Python Backend** processes camera feeds and detects objects using YOLOv8
+2. **Detections** are sent to Kafka topic 'detections' as JSON messages
+3. **Node.js Backend** consumes from Kafka and broadcasts via WebSocket
+4. **React Frontend** receives real-time updates and renders 3D visualization
+
+### Message Flow
+```
+Python Backend → Kafka Topic → Node.js Backend → WebSocket → React Frontend
+```
+
+### Detection Data Format
+```json
+{
+  "type": "detections",
+  "timestamp": 1234567890.123,
+  "detections": [
+    {
+      "id": "car_1",
+      "class": "car",
+      "confidence": 0.85,
+      "position": {"x": 2.5, "y": 1.0, "z": 3.2},
+      "zone": "left",
+      "bbox": [100, 200, 150, 250]
+    }
+  ]
+}
 ```
 
 ## Web-Specific Features
@@ -117,9 +195,15 @@ web/
 ## Troubleshooting
 
 ### Connection Issues
-- Ensure the backend is running on port 8765
-- Check firewall settings
+- Ensure Node.js backend is running on port 8081
+- Check Kafka is running and topic 'detections' exists
 - Verify WebSocket URL in browser console
+- Check firewall settings
+
+### No Detections Showing
+- Verify Python backend is sending to Kafka
+- Check Node.js backend logs for Kafka consumption
+- Ensure cameras are connected/working
 
 ### 3D Rendering Issues
 - Ensure WebGL is enabled in your browser
@@ -130,3 +214,9 @@ web/
 - Close other browser tabs for better performance
 - Use a modern browser for optimal 3D rendering
 - Reduce browser zoom if experiencing lag
+
+## Configuration
+
+- **WebSocket URL**: Configured in `src/services/WebSocketService.js`
+- **Kafka Settings**: Configured in `backend/kafka_config.js`
+- **Detection Zones**: Configured in `shared/config.py`
