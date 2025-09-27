@@ -122,6 +122,7 @@ export default function App() {
       wsService.current.on('connected', () => {
         setIsConnected(true);
         setConnectionStatus('Connected');
+       
       });
       wsService.current.on('disconnected', () => {
         setIsConnected(false);
@@ -132,6 +133,7 @@ export default function App() {
       });
       wsService.current.connect();
     }
+    
   };
 
   const switchToDefaultView = () => setCameraView('default');
