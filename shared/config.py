@@ -6,6 +6,11 @@ Shared configuration for SafeDetect Blind Spot Detection System
 WEBSOCKET_HOST = "localhost"
 WEBSOCKET_PORT = 8765
 
+# Kafka Configuration
+KAFKA_HOST = "localhost"
+KAFKA_PORT = 9092
+KAFKA_TOPIC = "detections"
+
 # Detection Configuration
 MODEL_CONFIDENCE = 0.5
 BLIND_SPOT_ZONES = {

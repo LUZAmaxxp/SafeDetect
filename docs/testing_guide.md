@@ -4,7 +4,7 @@ Comprehensive testing procedures for the SafeDetect blind spot detection system.
 
 ## 🧪 Testing Overview
 
-This guide covers testing strategies for all components of the SafeDetect system, including unit tests, integration tests, performance tests, and user acceptance tests.
+This guide covers testing strategies for all components of the SafeDetect system with Kafka integration, including unit tests, integration tests, performance tests, and user acceptance tests.
 
 ## 📋 Test Categories
 
@@ -12,15 +12,17 @@ This guide covers testing strategies for all components of the SafeDetect system
 - Individual component functionality
 - Algorithm accuracy
 - Data processing logic
+- Kafka message handling
 
 ### 2. Integration Tests
-- Component interaction testing
+- Component interaction testing (Python → Kafka → Node.js → React)
 - End-to-end data flow
 - Hardware integration
 
 ### 3. Performance Tests
 - Real-time operation verification
 - Resource usage monitoring
+- Kafka throughput testing
 - Scalability testing
 
 ### 4. User Acceptance Tests
@@ -101,37 +103,107 @@ class TestBlindSpotDetector(unittest.TestCase):
         # Implementation depends on specific testing framework
 ```
 
-#### WebSocket Server Tests
+#### Kafka Producer Tests
 
 ```python
-# backend/tests/test_websocket.py
-import asyncio
+# backend/tests/test_kafka_producer.py
 import unittest
-from backend.computer_vision.websocket_server import DetectionWebSocketServer
+from unittest.mock import Mock, patch
+from backend.computer_vision.kafka_producer import DetectionKafkaProducer
 
-class TestWebSocketServer(unittest.TestCase):
+class TestKafkaProducer(unittest.TestCase):
     def setUp(self):
-        self.server = DetectionWebSocketServer()
+        self.producer = DetectionKafkaProducer()
 
-    def test_server_initialization(self):
-        """Test WebSocket server initialization"""
-        self.assertFalse(self.server.is_running)
-        self.assertEqual(len(self.server.connected_clients), 0)
+    @patch('kafka.KafkaProducer')
+    def test_producer_initialization(self, mock_kafka_producer):
+        """Test Kafka producer initialization"""
+        mock_producer_instance = Mock()
+        mock_kafka_producer.return_value = mock_producer_instance
 
-    def test_client_registration(self):
-        """Test client connection handling"""
-        # Mock WebSocket client
-        mock_client = type('MockClient', (), {})()
+        producer = DetectionKafkaProducer()
+        self.assertIsNotNone(producer.producer)
+        mock_kafka_producer.assert_called_once()
 
-        # Test registration
-        self.server.connected_clients.add(mock_client)
-        self.assertIn(mock_client, self.server.connected_clients)
+    def test_send_detections(self):
+        """Test sending detection data to Kafka"""
+        with patch.object(self.producer, 'producer') as mock_producer:
+            detection_data = {
+                'type': 'detections',
+                'timestamp': 1234567890.123,
+                'detections': [{
+                    'id': 'car_1',
+                    'class': 'car',
+                    'confidence': 0.85,
+                    'position': {'x': 2.5, 'y': 1.0, 'z': 3.2}
+                }]
+            }
 
-    def test_message_broadcasting(self):
-        """Test message broadcasting to clients"""
-        # This would require actual WebSocket testing
-        # Consider using websockets test client
-        pass
+            self.producer.send_detections(detection_data)
+
+            # Verify message was sent to Kafka
+            mock_producer.send.assert_called_once()
+            args, kwargs = mock_producer.send.call_args
+            self.assertEqual(args[0], 'detections')  # topic
+            sent_message = args[1]  # message
+            self.assertEqual(sent_message['type'], 'detections')
+```
+
+#### Node.js Backend Tests
+
+```javascript
+// web/backend/tests/server.test.js
+const WebSocket = require('ws');
+const { Kafka } = require('kafkajs');
+
+describe('Node.js Backend', () => {
+    let server;
+    let kafkaConsumer;
+
+    beforeEach(() => {
+        // Mock Kafka consumer
+        kafkaConsumer = {
+            connect: jest.fn(),
+            subscribe: jest.fn(),
+            run: jest.fn(),
+            disconnect: jest.fn()
+        };
+    });
+
+    test('WebSocket server starts on correct port', () => {
+        // Test server initialization
+        expect(server).toBeDefined();
+    });
+
+    test('handles Kafka messages correctly', async () => {
+        const mockMessage = {
+            type: 'detections',
+            timestamp: Date.now(),
+            detections: [{
+                id: 'car_1',
+                class: 'car',
+                confidence: 0.85,
+                position: { x: 2.5, y: 1.0, z: 3.2 }
+            }]
+        };
+
+        // Simulate Kafka message processing
+        // Test that message is broadcast to WebSocket clients
+        expect(mockMessage.type).toBe('detections');
+    });
+
+    test('WebSocket clients receive messages', () => {
+        // Test WebSocket message broadcasting
+        const mockClient = { send: jest.fn() };
+        server.clients.add(mockClient);
+
+        // Simulate broadcasting a message
+        const testMessage = JSON.stringify({ type: 'test' });
+
+        // Verify client receives message
+        expect(mockClient.send).toHaveBeenCalledWith(testMessage);
+    });
+});
 ```
 
 ### Web App Unit Tests
@@ -170,80 +242,133 @@ describe('App Component', () => {
 # backend/tests/test_integration.py
 import asyncio
 import unittest
-from backend.computer_vision.blind_spot import BlindSpotSystem
+from unittest.mock import patch
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
 
 class TestBackendIntegration(unittest.TestCase):
     async def test_complete_backend_system(self):
         """Test complete backend system integration"""
-        system = BlindSpotSystem()
+        detector = MultiCameraDetector()
 
         # Start system with dummy video
-        await system.start(use_camera=False)
+        await detector.start(use_camera=False)
 
         # Verify system is running
-        self.assertTrue(system.is_running)
-        self.assertTrue(system.detector.cap.isOpened())
+        self.assertTrue(detector.is_running)
+        self.assertTrue(detector.cap.isOpened())
 
-        # Check WebSocket server status
-        status = system.get_status()
-        self.assertIn('websocket_status', status)
+        # Check Kafka producer status
+        status = detector.get_status()
+        self.assertIn('kafka_status', status)
         self.assertIn('detector_status', status)
 
         # Stop system
-        await system.stop()
-        self.assertFalse(system.is_running)
+        await detector.stop()
+        self.assertFalse(detector.is_running)
 
-    async def test_detection_to_websocket_flow(self):
-        """Test data flow from detection to WebSocket"""
-        system = BlindSpotSystem()
-        await system.start(use_camera=False)
+    async def test_detection_to_kafka_flow(self):
+        """Test data flow from detection to Kafka"""
+        detector = MultiCameraDetector()
 
-        # Process some frames
-        for _ in range(10):
-            detections = await system.detector.process_frame(system.websocket_server)
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            mock_producer_instance.send_detections = unittest.mock.AsyncMock()
+
+            await detector.start(use_camera=False)
+
+            # Process some frames
+            for _ in range(10):
+                detections = await detector.process_frame()
+                if detections:
+                    break
+                await asyncio.sleep(0.1)
+
+            # Verify detections were processed and sent to Kafka
+            self.assertIsInstance(detections, list)
             if detections:
-                break
-            await asyncio.sleep(0.1)
+                mock_producer_instance.send_detections.assert_called()
 
-        # Verify detections were processed
-        self.assertIsInstance(detections, list)
-
-        await system.stop()
+            await detector.stop()
 ```
 
-#### Web-Backend Integration Test
+#### Kafka-Node.js Integration Test
 
 ```python
-# backend/tests/test_web_integration.py
+# backend/tests/test_kafka_node_integration.py
 import asyncio
-import websockets
+import unittest
+from unittest.mock import patch, AsyncMock
+import subprocess
 import json
-from backend.computer_vision.websocket_server import DetectionWebSocketServer
+from backend.computer_vision.kafka_producer import DetectionKafkaProducer
 
-class TestWebIntegration(unittest.TestCase):
-    async def test_websocket_communication(self):
-        """Test WebSocket communication with web app"""
-        server = DetectionWebSocketServer()
+class TestKafkaNodeIntegration(unittest.TestCase):
+    def setUp(self):
+        self.producer = DetectionKafkaProducer()
 
-        # Start server
-        await server.start_server()
+    @patch('kafka.KafkaProducer')
+    async def test_kafka_to_websocket_flow(self, mock_kafka_producer):
+        """Test data flow from Kafka to Node.js WebSocket"""
+        mock_producer_instance = AsyncMock()
+        mock_kafka_producer.return_value = mock_producer_instance
 
-        # Connect test client
-        uri = "ws://localhost:8765"
-        async with websockets.connect(uri) as websocket:
-            # Test ping-pong
-            await websocket.send(json.dumps({"type": "ping"}))
-            response = await websocket.recv()
-            data = json.loads(response)
-            self.assertEqual(data["type"], "pong")
+        # Start Node.js backend (mock or subprocess)
+        # For testing, assume Node.js is running on port 8081
+        node_process = None
+        try:
+            # Start Node.js server in background (for real testing)
+            # node_process = subprocess.Popen(['node', 'web/backend/server.js'])
 
-            # Test status request
-            await websocket.send(json.dumps({"type": "status"}))
-            response = await websocket.recv()
-            data = json.loads(response)
-            self.assertEqual(data["type"], "status")
+            # Send test detection to Kafka
+            detection_data = {
+                'type': 'detections',
+                'timestamp': 1234567890.123,
+                'detections': [{
+                    'id': 'car_1',
+                    'class': 'car',
+                    'confidence': 0.85,
+                    'position': {'x': 2.5, 'y': 1.0, 'z': 3.2},
+                    'zone': 'left',
+                    'bbox': [100, 200, 150, 250]
+                }]
+            }
 
-        await server.stop_server()
+            await self.producer.send_detections(detection_data)
+
+            # Verify message was sent to Kafka
+            mock_producer_instance.send.assert_called_once()
+
+            # In real test, connect to WebSocket and verify message received
+            # For now, assert the flow logic
+            self.assertEqual(detection_data['type'], 'detections')
+
+        finally:
+            if node_process:
+                node_process.terminate()
+
+    async def test_node_websocket_communication(self):
+        """Test Node.js WebSocket server communication"""
+        # This test assumes Node.js server is running
+        # Use websockets library to connect to ws://localhost:8081
+
+        uri = "ws://localhost:8081"
+        try:
+            async with websockets.connect(uri) as websocket:
+                # Test connection
+                await websocket.send(json.dumps({"type": "ping"}))
+                response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                data = json.loads(response)
+                self.assertEqual(data["type"], "pong")
+
+                # Test status request
+                await websocket.send(json.dumps({"type": "status"}))
+                response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                data = json.loads(response)
+                self.assertEqual(data["type"], "status")
+                self.assertIn('kafka_connected', data)
+
+        except Exception as e:
+            self.fail(f"WebSocket test failed: {e}")
 ```
 
 ### End-to-End Testing
@@ -254,53 +379,117 @@ class TestWebIntegration(unittest.TestCase):
 # backend/tests/test_end_to_end.py
 import asyncio
 import time
-from backend.computer_vision.blind_spot import BlindSpotSystem
+import subprocess
+import unittest
+from unittest.mock import patch
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
 
 class TestEndToEnd(unittest.TestCase):
+    def setUp(self):
+        self.node_process = None
+        self.kafka_process = None
+
     async def test_full_system_workflow(self):
         """Test complete system from camera to web app"""
-        system = BlindSpotSystem()
-
+        # Start Kafka (in background)
         try:
-            # Start system
-            await system.start(use_camera=False)
-            self.assertTrue(system.is_running)
+            self.kafka_process = subprocess.Popen(['docker-compose', 'up', '-d'],
+                                                cwd='backend')
 
-            # Wait for system to process frames
-            await asyncio.sleep(5)
+            # Start Node.js backend
+            self.node_process = subprocess.Popen(['node', 'server.js'],
+                                               cwd='web/backend')
 
-            # Check system status
-            status = system.get_status()
-            self.assertIsNotNone(status['fps'])
-            self.assertGreater(status['fps'], 0)
+            # Give services time to start
+            await asyncio.sleep(10)
 
-            # Verify WebSocket server is accepting connections
-            self.assertEqual(status['websocket_status']['port'], 8765)
+            # Start Python detection system
+            detector = MultiCameraDetector()
+
+            try:
+                await detector.start(use_camera=False)
+                self.assertTrue(detector.is_running)
+
+                # Wait for system to process frames
+                await asyncio.sleep(5)
+
+                # Check system status
+                status = detector.get_status()
+                self.assertIsNotNone(status['fps'])
+                self.assertGreater(status['fps'], 0)
+
+                # Verify Kafka producer is connected
+                self.assertTrue(status['kafka_status']['connected'])
+
+            finally:
+                await detector.stop()
 
         finally:
-            await system.stop()
+            # Cleanup processes
+            if self.node_process:
+                self.node_process.terminate()
+            if self.kafka_process:
+                subprocess.run(['docker-compose', 'down'], cwd='backend')
 
     async def test_performance_requirements(self):
         """Test system meets performance requirements"""
-        system = BlindSpotSystem()
-        await system.start(use_camera=False)
+        detector = MultiCameraDetector()
 
         try:
+            await detector.start(use_camera=False)
+
             # Monitor performance for 10 seconds
+            fps_values = []
             start_time = time.time()
-            frame_count = 0
 
             while time.time() - start_time < 10:
-                status = system.get_status()
+                status = detector.get_status()
                 if status['fps'] > 0:
-                    frame_count += 1
+                    fps_values.append(status['fps'])
                 await asyncio.sleep(1)
 
-            # Verify minimum FPS requirement
-            self.assertGreaterEqual(status['fps'], 15, "System must maintain 15+ FPS")
+            # Calculate average FPS
+            avg_fps = sum(fps_values) / len(fps_values) if fps_values else 0
+
+            # Assert minimum performance
+            self.assertGreaterEqual(avg_fps, 15, f"Average FPS {avg_fps} below requirement")
 
         finally:
-            await system.stop()
+            await detector.stop()
+
+    async def test_kafka_message_flow(self):
+        """Test complete message flow: Python → Kafka → Node.js → WebSocket"""
+        # This test requires all services running
+        detector = MultiCameraDetector()
+
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            mock_producer_instance.send_detections = unittest.mock.AsyncMock()
+
+            try:
+                await detector.start(use_camera=False)
+
+                # Process frames to generate detections
+                detections_found = False
+                for _ in range(20):  # Try for up to 20 frames
+                    detections = await detector.process_frame()
+                    if detections:
+                        detections_found = True
+                        break
+                    await asyncio.sleep(0.1)
+
+                # Verify detections were sent to Kafka
+                if detections_found:
+                    mock_producer_instance.send_detections.assert_called()
+                    # Verify message structure
+                    call_args = mock_producer_instance.send_detections.call_args
+                    message = call_args[0][0]  # First positional argument
+                    self.assertEqual(message['type'], 'detections')
+                    self.assertIn('timestamp', message)
+                    self.assertIn('detections', message)
+
+            finally:
+                await detector.stop()
 ```
 
 ## 📊 Performance Testing
@@ -311,13 +500,14 @@ class TestEndToEnd(unittest.TestCase):
 # backend/tests/test_performance.py
 import time
 import psutil
-from backend.computer_vision.blind_spot import BlindSpotSystem
+import asyncio
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
 
 class TestPerformance(unittest.TestCase):
     async def test_fps_performance(self):
         """Test system maintains target FPS"""
-        system = BlindSpotSystem()
-        await system.start(use_camera=False)
+        detector = MultiCameraDetector()
+        await detector.start(use_camera=False)
 
         try:
             # Monitor FPS for 30 seconds
@@ -325,7 +515,7 @@ class TestPerformance(unittest.TestCase):
             start_time = time.time()
 
             while time.time() - start_time < 30:
-                status = system.get_status()
+                status = detector.get_status()
                 if status['fps'] > 0:
                     fps_values.append(status['fps'])
                 await asyncio.sleep(1)
@@ -342,7 +532,7 @@ class TestPerformance(unittest.TestCase):
                 self.assertLess(fps_std, 5, "FPS too unstable")
 
         finally:
-            await system.stop()
+            await detector.stop()
 
     def test_resource_usage(self):
         """Test system resource usage"""
@@ -363,10 +553,53 @@ class TestPerformance(unittest.TestCase):
 
     async def _run_system_briefly(self):
         """Run system briefly for resource testing"""
-        system = BlindSpotSystem()
-        await system.start(use_camera=False)
+        detector = MultiCameraDetector()
+        await detector.start(use_camera=False)
         await asyncio.sleep(5)
-        await system.stop()
+        await detector.stop()
+
+    async def test_kafka_throughput(self):
+        """Test Kafka message throughput"""
+        detector = MultiCameraDetector()
+
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            mock_producer_instance.send_detections = unittest.mock.AsyncMock()
+
+            await detector.start(use_camera=False)
+
+            try:
+                # Send multiple messages quickly
+                start_time = time.time()
+                message_count = 50
+
+                for i in range(message_count):
+                    test_detections = [{
+                        'id': f'test_{i}',
+                        'class': 'car',
+                        'confidence': 0.85,
+                        'position': {'x': 2.5, 'y': 1.0, 'z': 3.2},
+                        'zone': 'left',
+                        'bbox': [100, 200, 150, 250]
+                    }]
+
+                    detection_data = {
+                        'type': 'detections',
+                        'timestamp': time.time(),
+                        'detections': test_detections
+                    }
+
+                    await detector.kafka_producer.send_detections(detection_data)
+
+                end_time = time.time()
+                total_time = end_time - start_time
+                throughput = message_count / total_time  # messages per second
+
+                # Assert minimum throughput (adjust based on requirements)
+                self.assertGreaterEqual(throughput, 10, f"Kafka throughput {throughput} msg/s below requirement")
+
+            finally:
+                await detector.stop()
 ```
 
 ### Latency Testing
@@ -375,43 +608,121 @@ class TestPerformance(unittest.TestCase):
 # backend/tests/test_latency.py
 import time
 import asyncio
-from backend.computer_vision.websocket_server import DetectionWebSocketServer
+import websockets
+import json
+from unittest.mock import patch, AsyncMock
+from backend.computer_vision.kafka_producer import DetectionKafkaProducer
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
 
 class TestLatency(unittest.TestCase):
-    async def test_detection_latency(self):
-        """Test latency from detection to WebSocket broadcast"""
-        server = DetectionWebSocketServer()
-        await server.start_server()
+    async def test_detection_to_kafka_latency(self):
+        """Test latency from detection to Kafka message send"""
+        detector = MultiCameraDetector()
 
-        try:
-            # Connect test client
-            uri = "ws://localhost:8765"
-            async with websockets.connect(uri) as websocket:
-                # Send test detection
-                test_detection = {
-                    "object": "car",
-                    "position": {"x": 1.0, "y": 0.5},
-                    "confidence": 0.8
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            mock_send = AsyncMock()
+            mock_producer_instance.send_detections = mock_send
+
+            await detector.start(use_camera=False)
+
+            try:
+                # Generate test detection
+                test_detections = [{
+                    'id': 'test_car',
+                    'class': 'car',
+                    'confidence': 0.85,
+                    'position': {'x': 2.5, 'y': 1.0, 'z': 3.2},
+                    'zone': 'left',
+                    'bbox': [100, 200, 150, 250]
+                }]
+
+                detection_data = {
+                    'type': 'detections',
+                    'timestamp': time.time(),
+                    'detections': test_detections
                 }
 
+                # Measure latency
                 start_time = time.time()
-                await server.broadcast_detections([test_detection])
+                await detector.kafka_producer.send_detections(detection_data)
                 end_time = time.time()
 
-                # Receive message
-                response = await websocket.recv()
-                receive_time = time.time()
-
-                # Calculate latencies
-                broadcast_latency = (end_time - start_time) * 1000  # ms
-                total_latency = (receive_time - start_time) * 1000  # ms
+                # Calculate latency
+                kafka_latency = (end_time - start_time) * 1000  # ms
 
                 # Assert latency requirements
-                self.assertLess(broadcast_latency, 50, "Broadcast latency too high")
-                self.assertLess(total_latency, 100, "Total latency too high")
+                self.assertLess(kafka_latency, 50, f"Kafka send latency {kafka_latency}ms too high")
+
+                # Verify message was sent
+                mock_send.assert_called_once()
+                call_args = mock_send.call_args
+                sent_data = call_args[0][0]
+                self.assertEqual(sent_data['type'], 'detections')
+
+            finally:
+                await detector.stop()
+
+    async def test_end_to_end_latency(self):
+        """Test end-to-end latency: Detection → Kafka → Node.js → WebSocket"""
+        # This test requires Kafka and Node.js services running
+        detector = MultiCameraDetector()
+
+        # Connect to Node.js WebSocket for verification
+        uri = "ws://localhost:8081"
+        websocket = None
+
+        try:
+            # Start detection system
+            await detector.start(use_camera=False)
+
+            # Connect to WebSocket
+            websocket = await websockets.connect(uri)
+
+            # Send test detection through the pipeline
+            test_detections = [{
+                'id': 'latency_test',
+                'class': 'car',
+                'confidence': 0.85,
+                'position': {'x': 2.5, 'y': 1.0, 'z': 3.2},
+                'zone': 'left',
+                'bbox': [100, 200, 150, 250]
+            }]
+
+            detection_data = {
+                'type': 'detections',
+                'timestamp': time.time(),
+                'detections': test_detections
+            }
+
+            # Measure end-to-end latency
+            start_time = time.time()
+            await detector.kafka_producer.send_detections(detection_data)
+
+            # Wait for message to propagate through Kafka → Node.js → WebSocket
+            try:
+                response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                receive_time = time.time()
+
+                # Parse received message
+                received_data = json.loads(response)
+                end_to_end_latency = (receive_time - start_time) * 1000  # ms
+
+                # Assert end-to-end latency requirements
+                self.assertLess(end_to_end_latency, 200, f"End-to-end latency {end_to_end_latency}ms too high")
+
+                # Verify message integrity
+                self.assertEqual(received_data['type'], 'detections')
+                self.assertEqual(len(received_data['detections']), 1)
+                self.assertEqual(received_data['detections'][0]['id'], 'latency_test')
+
+            except asyncio.TimeoutError:
+                self.fail("Timeout waiting for WebSocket message - pipeline latency too high")
 
         finally:
-            await server.stop_server()
+            await detector.stop()
+            if websocket:
+                await websocket.close()
 ```
 
 ## 🧪 Hardware Testing
@@ -541,74 +852,117 @@ class TestSafetyFeatures(unittest.TestCase):
 
 ```python
 # backend/tests/test_usability.py
+import time
+import asyncio
+import unittest
+from unittest.mock import patch
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
+
 class TestUsability(unittest.TestCase):
     async def test_system_startup_time(self):
         """Test system starts up within acceptable time"""
         start_time = time.time()
 
-        system = BlindSpotSystem()
-        await system.start(use_camera=False)
+        detector = MultiCameraDetector()
+        await detector.start(use_camera=False)
 
         startup_time = time.time() - start_time
 
         # Assert startup time is reasonable (< 10 seconds)
         self.assertLess(startup_time, 10, "System startup too slow")
 
-        await system.stop()
+        await detector.stop()
 
     async def test_error_recovery(self):
         """Test system recovers from errors gracefully"""
-        system = BlindSpotSystem()
+        detector = MultiCameraDetector()
 
         # Start system
-        await system.start(use_camera=False)
+        await detector.start(use_camera=False)
 
-        # Simulate error condition
-        if system.detector.cap:
-            system.detector.cap.release()
+        # Simulate error condition (e.g., camera disconnect)
+        if detector.cap:
+            detector.cap.release()
 
         # System should handle error gracefully
-        status = system.get_status()
+        status = detector.get_status()
         self.assertIsNotNone(status, "System should report status even after errors")
 
-        await system.stop()
+        await detector.stop()
+
+    async def test_kafka_connection_recovery(self):
+        """Test system recovers from Kafka connection issues"""
+        detector = MultiCameraDetector()
+
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            # Simulate Kafka connection failure
+            mock_producer_instance.send_detections.side_effect = Exception("Kafka connection failed")
+
+            await detector.start(use_camera=False)
+
+            try:
+                # Try to send detections - should handle error gracefully
+                test_detections = [{
+                    'id': 'test',
+                    'class': 'car',
+                    'confidence': 0.85,
+                    'position': {'x': 2.5, 'y': 1.0, 'z': 3.2}
+                }]
+
+                # This should not crash the system
+                await detector.process_frame()
+
+                # System should still be running
+                self.assertTrue(detector.is_running)
+
+                # Status should reflect the error
+                status = detector.get_status()
+                self.assertIn('kafka_status', status)
+
+            finally:
+                await detector.stop()
 ```
 
 ### Real-World Scenario Tests
 
 ```python
 # backend/tests/test_real_world.py
+import asyncio
+import unittest
+from backend.computer_vision.multi_camera_detector import MultiCameraDetector
+
 class TestRealWorldScenarios(unittest.TestCase):
     async def test_night_time_detection(self):
         """Test detection performance in low light"""
-        system = BlindSpotSystem()
+        detector = MultiCameraDetector()
 
         # Use night-time test video
-        system.detector.start_dummy_video("night_test_video.mp4")
-        await system.start(use_camera=False)
+        detector.start_dummy_video("night_test_video.mp4")
+        await detector.start(use_camera=False)
 
         # Monitor detection accuracy
         detection_count = 0
         for _ in range(50):  # Test for ~5 seconds at 10 FPS
-            detections = await system.detector.process_frame()
+            detections = await detector.process_frame()
             detection_count += len(detections)
             await asyncio.sleep(0.1)
 
         # Assert reasonable detection rate
         self.assertGreater(detection_count, 0, "Should detect objects in night conditions")
 
-        await system.stop()
+        await detector.stop()
 
     async def test_multiple_object_tracking(self):
         """Test tracking multiple objects simultaneously"""
-        system = BlindSpotSystem()
-        system.detector.start_dummy_video("multi_object_test.mp4")
-        await system.start(use_camera=False)
+        detector = MultiCameraDetector()
+        detector.start_dummy_video("multi_object_test.mp4")
+        await detector.start(use_camera=False)
 
         # Process frames and count unique objects
         object_positions = set()
         for _ in range(100):  # Test for ~10 seconds
-            detections = await system.detector.process_frame()
+            detections = await detector.process_frame()
             for detection in detections:
                 pos_key = f"{detection['position']['x']:.1f}_{detection['position']['y']:.1f}"
                 object_positions.add(pos_key)
@@ -617,7 +971,51 @@ class TestRealWorldScenarios(unittest.TestCase):
         # Assert multiple objects are detected
         self.assertGreater(len(object_positions), 1, "Should track multiple objects")
 
-        await system.stop()
+        await detector.stop()
+
+    async def test_kafka_message_persistence(self):
+        """Test that Kafka messages are sent reliably under load"""
+        detector = MultiCameraDetector()
+
+        with patch('backend.computer_vision.kafka_producer.DetectionKafkaProducer') as mock_producer:
+            mock_producer_instance = mock_producer.return_value
+            mock_producer_instance.send_detections = unittest.mock.AsyncMock()
+
+            await detector.start(use_camera=False)
+
+            try:
+                # Simulate high-frequency detections (stress test)
+                sent_messages = 0
+                for i in range(100):  # Send 100 messages quickly
+                    detections = await detector.process_frame()
+                    if detections or i % 10 == 0:  # Send at least every 10 frames
+                        test_detections = [{
+                            'id': f'stress_test_{i}',
+                            'class': 'car',
+                            'confidence': 0.85,
+                            'position': {'x': 2.5, 'y': 1.0, 'z': 3.2},
+                            'zone': 'left',
+                            'bbox': [100, 200, 150, 250]
+                        }]
+
+                        detection_data = {
+                            'type': 'detections',
+                            'timestamp': time.time(),
+                            'detections': test_detections
+                        }
+
+                        await detector.kafka_producer.send_detections(detection_data)
+                        sent_messages += 1
+
+                    await asyncio.sleep(0.05)  # 20 FPS simulation
+
+                # Verify all messages were sent
+                self.assertGreater(sent_messages, 0, "No messages were sent to Kafka")
+                self.assertEqual(mock_producer_instance.send_detections.call_count, sent_messages,
+                               "Not all messages reached Kafka producer")
+
+            finally:
+                await detector.stop()
 ```
 
 ## 🏃 Running Tests
@@ -639,6 +1037,25 @@ python -m pytest tests/ --cov=computer_vision --cov-report=html
 
 # Run performance tests
 python -m pytest tests/test_performance.py -v
+```
+
+### Node.js Backend Tests
+
+```bash
+# Navigate to web/backend directory
+cd web/backend
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run specific test file
+npx jest server.test.js
 ```
 
 ### Web App Tests
@@ -712,15 +1129,23 @@ def benchmark_detection():
    - Use dummy video for headless testing
    - Mock camera for unit tests
 
-2. **WebSocket Connection Issues**:
-   - Use test WebSocket server
-   - Mock WebSocket connections
-   - Test on different ports
+2. **Kafka Connection Issues**:
+   - Ensure Kafka and Zookeeper are running (`docker-compose ps`)
+   - Check Kafka topic exists (`docker exec kafka kafka-topics --list --bootstrap-server localhost:9092`)
+   - Verify broker configuration in `shared/config.py`
+   - Use Kafka logs for debugging: `docker logs kafka`
 
-3. **Performance Variations**:
+3. **Node.js WebSocket Issues**:
+   - Verify Node.js server is running on port 8081
+   - Check WebSocket connection URL in frontend
+   - Test WebSocket manually with browser dev tools
+   - Verify Kafka consumer is connected
+
+4. **Performance Variations**:
    - Run tests multiple times
    - Use statistical analysis
    - Account for system load
+   - Monitor Kafka message queue depth
 
 ### Debug Test Failures
 

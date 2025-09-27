@@ -1,20 +1,21 @@
 # SafeDetect Integration Guide
 
-How to integrate the SafeDetect blind spot detection system components and customize for specific use cases.
+How to integrate the SafeDetect blind spot detection system components and customize for specific use cases with Kafka messaging.
 
 ## 🔗 Component Integration
 
 ### Overview
 
-SafeDetect consists of three main components:
-1. **Computer Vision Backend** (Python)
-2. **WebSocket Server** (Python)
-3. **Web Application** (React.js)
+SafeDetect consists of four main components:
+1. **Computer Vision Backend** (Python) - YOLOv8 detection with Kafka producer
+2. **Kafka Message Queue** - Reliable communication between backend services
+3. **Node.js Backend** - Kafka consumer + WebSocket server for real-time web updates
+4. **React Frontend** - 3D visualization and user interface
 
 ### Data Flow
 
 ```
-Camera Input → YOLOv8 Detection → Blind Spot Analysis → WebSocket Broadcast → Web App Display
+Camera Input → YOLOv8 Detection → Blind Spot Analysis → Kafka Producer → Kafka Topic → Node.js Consumer → WebSocket → React Frontend
 ```
 
 ## 🛠️ Backend Integration
@@ -43,15 +44,33 @@ OBJECT_COLORS = {
     "bus": "blue",      # New color
     "truck": "purple"   # New color
 }
+
+# Update Kafka topic if needed
+KAFKA_TOPIC = 'detections'  # Or custom topic name
 ```
 
-2. **Update Detection Script** (`backend/computer_vision/detection.py`):
+2. **Update Detection Script** (`backend/computer_vision/multi_camera_detector.py`):
 
 ```python
 # In the detection loop
 if class_id in OBJECT_CLASSES:
     object_type = OBJECT_CLASSES[class_id]
     # ... rest of detection logic
+
+    # Send to Kafka
+    detection_data = {
+        'type': 'detections',
+        'timestamp': time.time(),
+        'detections': [{
+            'id': f"{object_type}_{len(detections)}",
+            'class': object_type,
+            'confidence': confidence,
+            'position': position,
+            'zone': zone,
+            'bbox': bbox
+        }]
+    }
+    self.kafka_producer.send_detections(detection_data)
 ```
 
 ### Custom Blind Spot Zones
@@ -99,7 +118,7 @@ Extend the alert system in `web/src/App.js`:
 ```javascript
 const triggerCustomAlert = async (detection) => {
     // Custom alert logic based on detection type
-    if (detection.object === 'person') {
+    if (detection.class === 'person') {
         // Special alert for pedestrians
         if ('vibrate' in navigator) {
             navigator.vibrate([200, 100, 200]); // Vibration pattern
@@ -139,10 +158,10 @@ export default function CustomTruck() {
 
 ### WebSocket Message Handling
 
-Add custom message types:
+Add custom message types in `web/src/services/WebSocketService.js`:
 
 ```javascript
-// In web/src/services/WebSocketService.js
+// Handle messages from Node.js backend (via WebSocket)
 handleMessage(data) {
     switch (data.type) {
         case 'detections':
@@ -151,10 +170,35 @@ handleMessage(data) {
         case 'system_status':
             this.emit('systemStatus', data);
             break;
+        case 'kafka_status':
+            this.emit('kafkaStatus', data);
+            break;
         case 'custom_event':
             this.emit('customEvent', data);
             break;
         // ... existing cases
+    }
+}
+```
+
+### Node.js Backend Customization
+
+Extend the Node.js backend (`web/backend/server.js`) for custom processing:
+
+```javascript
+// Add custom message processing
+function processDetectionMessage(message) {
+    // Custom logic for processing Kafka messages
+    if (message.type === 'detections') {
+        // Add custom fields, filtering, etc.
+        message.processed_at = new Date().toISOString();
+
+        // Send to all connected WebSocket clients
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(message));
+            }
+        });
     }
 }
 ```
@@ -165,33 +209,60 @@ handleMessage(data) {
 
 For deployment across multiple devices:
 
-1. **Configure Backend**:
-```python
-# shared/config.py
-WEBSOCKET_HOST = "0.0.0.0"  # Bind to all interfaces
-WEBSOCKET_PORT = 8765
+1. **Configure Kafka** (in `backend/docker-compose.yml`):
+```yaml
+kafka:
+  ports:
+    - "9092:9092"  # Expose Kafka port
+  environment:
+    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://YOUR_IP:9092
 ```
 
-2. **Update Web App**:
+2. **Configure Node.js Backend** (`web/backend/kafka_config.js`):
+```javascript
+const kafkaConfig = {
+    clientId: 'safedetect-node',
+    brokers: ['YOUR_IP:9092'],  // Use actual IP instead of localhost
+    groupId: 'node-backend-group'
+};
+```
+
+3. **Update React App** (`web/src/services/WebSocketService.js`):
 ```javascript
 // Use actual IP address instead of localhost
-const wsService = new WebSocketService('ws://192.168.1.100:8765');
+const wsService = new WebSocketService('ws://192.168.1.100:8081');
 ```
 
 ### Cloud Deployment
 
 For cloud-based deployment:
 
-1. **WebSocket Server**:
-```python
-# Use cloud WebSocket service or deploy to cloud platform
-WEBSOCKET_HOST = "your-cloud-server.com"
-WEBSOCKET_PORT = 8765
+1. **Kafka Setup**:
+```yaml
+# Use cloud Kafka service (AWS MSK, Confluent Cloud, etc.)
+kafka:
+  environment:
+    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://your-kafka-endpoint:9092
 ```
 
-2. **Web App**:
+2. **Node.js Backend**:
 ```javascript
-// Connect to cloud WebSocket
+// web/backend/kafka_config.js
+const kafkaConfig = {
+    clientId: 'safedetect-node',
+    brokers: ['your-kafka-endpoint:9092'],
+    ssl: true,  // Enable SSL for cloud Kafka
+    sasl: {
+        mechanism: 'plain',
+        username: process.env.KAFKA_USERNAME,
+        password: process.env.KAFKA_PASSWORD
+    }
+};
+```
+
+3. **Web App**:
+```javascript
+// Connect to cloud WebSocket (secure)
 const wsService = new WebSocketService('wss://your-cloud-server.com/ws');
 ```
 

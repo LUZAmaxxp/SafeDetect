@@ -1,452 +1,307 @@
 # SafeDetect Setup Guide
 
-Complete installation and setup instructions for the SafeDetect blind spot detection system.
+Complete installation and setup instructions for the SafeDetect blind spot detection system with Kafka integration.
 
-## 📋 Prerequisites
+## Overview
 
-### Hardware Requirements
-- **Computer/Raspberry Pi**: 2+ core CPU, 4GB+ RAM
-- **Camera**: USB webcam or Raspberry Pi camera module
-- **Web Browser**: Modern browser with WebGL support
-- **Network**: Local WiFi network
+SafeDetect is a real-time blind spot detection system for vehicles that uses computer vision to detect objects in blind spots and provides real-time alerts through a web interface. The system consists of:
 
-### Software Requirements
-- **Python**: 3.8 or higher
-- **Node.js**: 16 or higher
-- **Git**: For cloning repository
-- **Modern Web Browser**: Chrome, Firefox, Safari, or Edge with WebGL support
+- **Python Backend**: Computer vision processing with YOLOv8 for object detection
+- **Kafka Message Queue**: Reliable communication between backend components
+- **Node.js Backend**: WebSocket server that consumes Kafka messages
+- **React Frontend**: 3D visualization and real-time alerts
 
-## 🛠️ Installation
+## Prerequisites
 
-### Step 1: Clone Repository
+### System Requirements
+- **Operating System**: macOS Monterey+, Ubuntu 20.04+, or Windows 10+
+- **Python**: 3.11 or higher
+- **Node.js**: 18.0 or higher
+- **Docker**: For Kafka setup
+- **Hardware**: USB cameras (3 recommended for multi-camera setup) or video files for testing
 
-```bash
-git clone https://github.com/your-username/safedetect.git
-cd safedetect
+### Hardware Setup
+- Connect USB cameras to your computer (typically `/dev/video0`, `/dev/video1`, `/dev/video2` on Linux/macOS)
+- For testing without cameras, the system can use video files
+
+## Project Structure
+
+```
+SafeDetect/
+├── backend/                    # Python computer vision backend
+│   ├── computer_vision/        # Core detection logic
+│   ├── docker-compose.yml      # Kafka setup
+│   ├── requirements.txt        # Python dependencies
+│   └── README.md              # Backend-specific docs
+├── web/                       # React frontend
+│   ├── backend/               # Node.js WebSocket server
+│   ├── src/                   # React application
+│   ├── package.json
+│   └── README.md
+├── shared/                    # Shared configuration
+├── docs/                      # Documentation
+└── README.md                  # Main project README
 ```
 
-### Step 2: Backend Setup
+## Step-by-Step Setup
 
-#### Python Environment Setup
+### Step 1: Clone the Repository
+
+```bash
+git clone <repository-url>
+cd SafeDetect
+```
+
+### Step 2: Setup Kafka Message Queue
+
+Kafka handles communication between the Python backend and Node.js server.
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Start Kafka and Zookeeper using Docker
+docker-compose up -d
+
+# Verify containers are running
+docker-compose ps
+```
+
+You should see:
+```
+NAME                  IMAGE                             COMMAND                  SERVICE     STATUS
+backend-kafka-1       confluentinc/cp-kafka:7.4.0       "/etc/confluent/dock…"   kafka       Up
+backend-zookeeper-1   confluentinc/cp-zookeeper:7.4.0   "/etc/confluent/dock…"   zookeeper   Up
+```
+
+**Note**: The 'detections' topic is auto-created when the system first runs. If needed manually:
+
+```bash
+docker-compose exec kafka kafka-topics --create --topic detections --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+```
+
+### Step 3: Setup Python Backend
 
 ```bash
 # Navigate to backend directory
 cd backend
 
 # Create virtual environment
-python3 -m venv venv
+python -m venv venv
 
 # Activate virtual environment
-# Linux/macOS:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install Python dependencies
 pip install -r requirements.txt
 ```
 
-#### Verify Installation
+**Dependencies include:**
+- `opencv-python`: Camera/video processing
+- `ultralytics`: YOLOv8 object detection
+- `kafka-python`: Kafka producer
+- `pygame`: Audio alerts
+- `numpy`: Numerical computations
+
+### Step 4: Setup Node.js Backend
 
 ```bash
-# Test YOLOv8 installation
-python -c "from ultralytics import YOLO; print('YOLOv8 installed successfully')"
+# Navigate to web backend directory
+cd web/backend
 
-# Test OpenCV installation
-python -c "import cv2; print('OpenCV version:', cv2.__version__)"
-```
-
-### Step 3: Web App Setup
-
-#### Install Node.js Dependencies
-
-```bash
-# Navigate to web directory
-cd ../web
-
-# Install dependencies
+# Install Node.js dependencies
 npm install
 ```
 
-### Step 4: Configuration
+**Dependencies include:**
+- `kafkajs`: Kafka consumer
+- `ws`: WebSocket server
+- `express`: HTTP server framework
 
-#### Backend Configuration
-
-Edit `shared/config.py` to customize:
-
-```python
-# WebSocket Configuration
-WEBSOCKET_HOST = "0.0.0.0"  # Use 0.0.0.0 for network access
-WEBSOCKET_PORT = 8765
-
-# Detection Configuration
-MODEL_CONFIDENCE = 0.5
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
-FPS_TARGET = 15
-```
-
-#### Web App Configuration
-
-Edit `web/src/services/WebSocketService.js` to set the correct IP address:
-
-```javascript
-// Replace 'localhost' with your computer's IP address
-const wsService = new WebSocketService('ws://YOUR_IP_ADDRESS:8765');
-```
-
-**IP Address Configuration:**
-- **Development Server**: Use `ws://localhost:8765` for local development
-- **Network Access**: Use your computer's local IP address for access from other devices
-- **Production**: Use the production server URL
-
-## 🚀 Running the System
-
-### Method 1: Development Mode (Recommended)
-
-#### Terminal 1 - Backend
+### Step 5: Setup React Frontend
 
 ```bash
-cd backend
-source venv/bin/activate
-python computer_vision/blind_spot.py
-```
-
-#### Terminal 2 - Web App
-
-```bash
+# Navigate to web directory
 cd web
-npm start
+
+# Install React dependencies
+npm install
 ```
 
-### Method 2: Individual Components
+**Dependencies include:**
+- `react`: Frontend framework
+- `three`: 3D graphics
+- `@react-three/fiber`: React Three.js renderer
+- `@react-three/drei`: Three.js helpers
 
-#### Backend Only
-
-```bash
-# Detection system only
-python backend/computer_vision/detection.py
-
-# WebSocket server only
-python backend/computer_vision/websocket_server.py
-
-# Complete system
-python backend/computer_vision/blind_spot.py
-```
-
-#### Web App Only
-
-```bash
-cd web
-npm start
-```
-
-
-
-## 🖥️ Hardware Setup
+## Configuration
 
 ### Camera Configuration
 
-#### Single Camera Setup
+Edit `shared/config.py` to configure camera IDs:
+
 ```python
-# Use default camera (ID 0)
-python backend/computer_vision/blind_spot.py
+CAMERA_CONFIG = {
+    'left': 0,    # Camera ID for left blind spot
+    'right': 1,   # Camera ID for right blind spot
+    'rear': 2     # Camera ID for rear blind spot
+}
 ```
 
-#### Multiple Camera Setup
+### Kafka Configuration
+
+The Kafka settings are configured in `shared/config.py`:
+
 ```python
-# Modify blind_spot.py for multiple cameras
-cameras = [0, 1, 2]  # Camera IDs
+KAFKA_CONFIG = {
+    'bootstrap_servers': ['localhost:9092'],
+    'topic': 'detections'
+}
 ```
 
-#### Raspberry Pi Camera Setup
+## Running the System
 
+### Development Mode (Recommended for Setup)
+
+Open **4 terminals** and run each component:
+
+**Terminal 1 - Kafka** (Already running from setup)
 ```bash
-# Enable camera interface
-sudo raspi-config
-
-# Install camera dependencies
-pip install picamera2
+cd backend
+docker-compose logs -f  # Monitor Kafka logs
 ```
 
-### Network Configuration
-
-#### Find Your IP Address
-
+**Terminal 2 - Node.js Backend**
 ```bash
-# Linux/macOS
-ifconfig | grep inet
-
-# Windows
-ipconfig
+cd web/backend
+node server.js
 ```
+- Starts WebSocket server on `ws://localhost:8081`
+- Consumes messages from Kafka 'detections' topic
+- Logs: "WebSocket server started on port 8081", "Connected to Kafka"
 
-#### Firewall Configuration
-
+**Terminal 3 - Python Detection Backend**
 ```bash
-# Allow WebSocket port (8765)
-sudo ufw allow 8765
-
-# Or using iptables
-sudo iptables -A INPUT -p tcp --dport 8765 -j ACCEPT
+cd backend
+source venv/bin/activate
+python computer_vision/multi_camera_detector.py
 ```
+- Initializes cameras and YOLOv8 model
+- Starts detection loop
+- Sends detections to Kafka
+- Press Ctrl+C to stop
 
-## 🧪 Testing
-
-### Test with Dummy Video
-
-1. Place a test video file named `dummy_video.mp4` in the backend directory
-2. Run the system - it will automatically use the dummy video
-3. Verify detections appear in web browser
-
-### Test with Real Camera
-
+**Terminal 4 - React Frontend**
 ```bash
-# Start system with real camera
-python -c "
-import asyncio
-from backend.computer_vision.blind_spot import BlindSpotSystem
+cd web
+npm start
+```
+- Opens browser at `http://localhost:3000`
+- Connects to WebSocket server
+- Displays 3D truck visualization
 
-async def main():
-    system = BlindSpotSystem()
-    await system.start(use_camera=True, camera_id=0)
+### Testing Without Cameras
 
-asyncio.run(main())
-"
+If you don't have cameras, modify `backend/computer_vision/multi_camera_detector.py`:
+
+```python
+# Replace camera initialization with video files
+self.cap = cv2.VideoCapture('path/to/test_video.mp4')
 ```
 
-### Performance Testing
+## Verification Steps
 
+### 1. Check Kafka Topic
 ```bash
-# Monitor system performance
-python -c "
-import time
-import psutil
-
-# Monitor CPU and memory usage
-while True:
-    print(f'CPU: {psutil.cpu_percent()}% Memory: {psutil.virtual_memory().percent}%')
-    time.sleep(1)
-"
+cd backend
+docker-compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
+Should show: `detections`
 
-## 🔧 Troubleshooting
+### 2. Monitor Kafka Messages
+```bash
+cd backend
+docker-compose exec kafka kafka-console-consumer --topic detections --bootstrap-server localhost:9092 --from-beginning
+```
+You should see JSON messages when detections occur.
+
+### 3. Check WebSocket Connection
+Open browser dev tools (F12) → Network → WS tab. Should show WebSocket connection to `localhost:8081`.
+
+### 4. Test Detection
+Point cameras at objects or use test video. Frontend should show:
+- Colored spheres for detected objects
+- Real-time FPS counter
+- Audio alerts for blind spot objects
+
+## Troubleshooting
 
 ### Common Issues
 
-#### 1. WebSocket Connection Failed
+**"No cameras found"**
+- Check USB connections: `ls /dev/video*` (Linux/macOS)
+- Try different camera IDs in `shared/config.py`
+- Use video files for testing
 
-**Symptoms**: Web app shows "Disconnected" or "Connection Error"
+**"Kafka connection failed"**
+- Ensure Docker containers are running: `docker-compose ps`
+- Check Kafka logs: `docker-compose logs kafka`
+- Verify topic exists
 
-**Solutions**:
-- Verify backend is running on correct port
-- Check IP address configuration
-- Ensure firewall allows port 8765
-- Try different IP addresses (localhost, 127.0.0.1, 0.0.0.0)
+**"WebSocket connection failed"**
+- Ensure Node.js server is running on port 8081
+- Check firewall settings
+- Verify WebSocket URL in frontend
 
-#### 2. Camera Not Detected
+**"No detections in frontend"**
+- Check Python backend logs for detection output
+- Monitor Kafka messages
+- Verify Node.js server is consuming messages
 
-**Symptoms**: No camera feed, errors in detection script
+**Performance Issues**
+- YOLOv8 runs on CPU by default
+- For better performance, install PyTorch with CUDA support
+- Reduce camera resolution in code if needed
 
-**Solutions**:
-- Check camera connection
-- Verify camera permissions
-- Try different camera IDs (0, 1, 2)
-- Install camera drivers if needed
+### Logs and Debugging
 
-#### 3. Low FPS Performance
+**Python Backend Logs:**
+- Run with verbose output
+- Check for camera initialization errors
+- Monitor detection confidence scores
 
-**Symptoms**: Choppy video, delayed detections
+**Node.js Backend Logs:**
+- Shows Kafka connection status
+- WebSocket client connections
+- Message consumption rate
 
-**Solutions**:
-- Reduce camera resolution in config
-- Close other applications
-- Use GPU acceleration if available
-- Reduce detection confidence threshold
+**React Frontend:**
+- Browser console for WebSocket errors
+- Network tab for connection status
 
-#### 4. Web App Not Loading
+## Production Deployment
 
-**Symptoms**: Browser shows blank page, 3D graphics not rendering
+For production deployment:
 
-**Solutions**:
-- Clear browser cache and refresh
-- Restart development server: `npm start`
-- Check browser console for errors
-- Verify WebGL support in browser
-- Check Node.js version compatibility
-- Verify all dependencies installed
+1. **Use environment variables** for configuration instead of hardcoded values
+2. **Set up proper logging** with log rotation
+3. **Configure camera streams** for your specific hardware
+4. **Set up monitoring** for system health
+5. **Use Docker Compose** for the entire stack
 
-### Debug Mode
+## Next Steps
 
-Enable debug logging:
+After setup is complete:
+- Read `docs/integration_guide.md` for detailed architecture
+- Run tests with `docs/testing_guide.md`
+- Customize detection zones in `shared/config.py`
+- Add more camera angles or improve detection accuracy
 
-```python
-# In Python scripts
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
+## Support
 
-```javascript
-// In React.js
-console.log('Debug information')
-```
+For issues:
+1. Check this guide and troubleshooting section
+2. Review component-specific READMEs
+3. Check GitHub issues for similar problems
+4. Provide logs and system information when reporting issues
 
-## 📊 System Status
-
-### Check Backend Status
-
-```bash
-# Check if processes are running
-ps aux | grep python
-
-# Check network connections
-netstat -tlnp | grep 8765
-
-# Check system resources
-htop
-```
-
-### Check Web App Status
-
-```bash
-# Check development server
-curl http://localhost:3000
-
-# Check WebSocket connection
-# Use browser developer tools to inspect WebSocket connections
-```
-
-## 🚀 Production Deployment
-
-### Raspberry Pi Setup
-
-```bash
-# Install system dependencies
-sudo apt update
-sudo apt install python3-pip python3-venv
-
-# Create dedicated user
-sudo useradd -m -s /bin/bash safedetect
-sudo su safedetect
-
-# Clone and setup
-git clone https://github.com/your-username/safedetect.git
-cd safedetect
-
-# Setup Python environment
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Setup as service
-sudo nano /etc/systemd/system/safedetect.service
-```
-
-**Service Configuration** (`/etc/systemd/system/safedetect.service`):
-
-```ini
-[Unit]
-Description=SafeDetect Blind Spot Detection System
-After=network.target
-
-[Service]
-Type=simple
-User=safedetect
-WorkingDirectory=/home/safedetect/safedetect/backend
-ExecStart=/home/safedetect/safedetect/backend/venv/bin/python computer_vision/blind_spot.py
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-# Enable and start service
-sudo systemctl enable safedetect
-sudo systemctl start safedetect
-sudo systemctl status safedetect
-```
-
-### Docker Deployment
-
-```dockerfile
-# Dockerfile for backend
-FROM python:3.9-slim
-
-WORKDIR /app
-COPY backend/requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY backend/ .
-COPY shared/ ../shared/
-
-CMD ["python", "computer_vision/blind_spot.py"]
-```
-
-```bash
-# Build and run
-docker build -t safedetect-backend .
-docker run -p 8765:8765 safedetect-backend
-```
-
-## 📈 Monitoring and Maintenance
-
-### System Monitoring
-
-```bash
-# Monitor logs
-tail -f /var/log/safedetect.log
-
-# Check system health
-python -c "
-from backend.computer_vision.blind_spot import BlindSpotSystem
-system = BlindSpotSystem()
-print(system.get_status())
-"
-```
-
-### Regular Maintenance
-
-1. **Update Dependencies**:
-   ```bash
-   pip install --upgrade -r requirements.txt
-   npm update
-   ```
-
-2. **Clean Up Logs**:
-   ```bash
-   # Rotate log files
-   logrotate /etc/logrotate.d/safedetect
-   ```
-
-3. **System Updates**:
-   ```bash
-   sudo apt update && sudo apt upgrade
-   ```
-
-## 📞 Support
-
-For additional help:
-- Check the troubleshooting section above
-- Review the integration guide
-- Open an issue on GitHub
-- Check the community discussions
-
-## ✅ Verification Checklist
-
-- [ ] Backend dependencies installed
-- [ ] Web app dependencies installed
-- [ ] Configuration files updated
-- [ ] Network connectivity verified
-- [ ] Camera access confirmed
-- [ ] WebSocket connection tested
-- [ ] Web app connects successfully
-- [ ] Detections appear in web browser
-- [ ] 3D visualization renders correctly
-- [ ] Alerts trigger correctly
-
----
-
-**Congratulations!** 🎉 Your SafeDetect system should now be fully operational. If you encounter any issues, refer to the troubleshooting section or reach out for support.

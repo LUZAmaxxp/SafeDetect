@@ -1,23 +1,32 @@
-# Task: Replace Truck Model with GLTF and Integrate ML
+# Switch from WebSockets to Kafka for Backend Communication
 
-## Steps to Complete:
+## 1. Install and Setup Kafka
 
-1. **Modify Truck3D.js**:
+- [x] Install Kafka via Docker (Homebrew failed due to macOS version)
+- [x] Start Zookeeper and Kafka servers
+- [x] Create 'detections' topic
 
-   - ✅ Import useGLTF from @react-three/drei.
-   - ✅ Load the GLTF model from '/result.gltf'.
-   - ✅ Replace basic geometries with the loaded GLTF scene.
-   - ✅ Add props for detections and update blind spot zones or add dynamic elements based on ML data.
+## 2. Update Python Backend
+- [x] Add kafka-python to backend/requirements.txt
+- [x] Create backend/computer_vision/kafka_producer.py
+- [x] Modify backend/computer_vision/detection.py to use Kafka producer instead of WebSocket
+- [x] Update shared/config.py with Kafka settings
+- [x] Deprecate websocket_server.py
 
-2. **Update App.js**:
+## 3. Create Node.js Backend for Web App
 
-   - ✅ Pass the `detections` state to the Truck3D component.
+- [x] Create web/backend/ directory
+- [x] Create web/backend/package.json with dependencies
+- [x] Create web/backend/server.js (Kafka consumer + WebSocket server)
+- [x] Create web/backend/kafka_config.js
 
-3. **Test the Integration**:
+## 4. Update Web Frontend
 
-   - ✅ Run the web app and verify the GLTF loads correctly.
-   - ✅ Simulate detections to check ML integration (e.g., dynamic updates to the model).
+- [x] Update web/src/App.js WebSocket URL to localhost:8081
 
-4. **Cleanup**:
-   - ✅ Remove any unused code from the old model.
-   - ✅ Ensure no errors in console.
+## 5. Testing and Integration
+
+- [x] Install Python dependencies
+- [x] Test Python producer
+- [x] Test Node.js consumer/WebSocket server
+- [x] Test full integration with web app
