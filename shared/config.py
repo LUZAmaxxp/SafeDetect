@@ -1,14 +1,15 @@
 """
 Shared configuration for SafeDetect Blind Spot Detection System
 """
+import os
 
 # WebSocket Configuration
 WEBSOCKET_HOST = "localhost"
 WEBSOCKET_PORT = 8765
 
 # Kafka Configuration
-KAFKA_HOST = "localhost"
-KAFKA_PORT = 9092
+KAFKA_HOST = os.environ.get("KAFKA_HOST", "localhost")
+KAFKA_PORT = int(os.environ.get("KAFKA_PORT", 9092))
 KAFKA_TOPIC = "detections"
 
 # Detection Configuration

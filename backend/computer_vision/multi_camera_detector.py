@@ -1,6 +1,7 @@
 """
 Multi-Camera Blind Spot Detection System
 Supports multiple camera feeds for comprehensive blind spot monitoring
+Optimized for both PC and Raspberry Pi deployment
 """
 
 import cv2
@@ -8,6 +9,11 @@ import numpy as np
 from ultralytics import YOLO
 import time
 import asyncio
+import platform
+from .pi_utils import init_picamera, optimize_frame
+
+# Check if running on Raspberry Pi
+IS_RASPBERRY_PI = platform.machine().startswith('arm') or platform.machine().startswith('aarch')
 import json
 import sys
 import os
@@ -33,9 +39,14 @@ class MultiCameraDetector:
         self.fps = 0
         self.last_time = time.time()
 
-        # Initialize pygame for audio alerts
-        pygame.mixer.init()
-        self.alert_sound = self._create_beep_sound()
+        # Initialize pygame for audio alerts (if available)
+        try:
+            pygame.mixer.init()
+            self.alert_sound = self._create_beep_sound()
+            self.audio_available = True
+        except pygame.error:
+            logger.warning("Audio device not available. Running without sound alerts.")
+            self.audio_available = False
 
         # Detection history for smoothing
         self.detection_history = []
@@ -220,9 +231,13 @@ class MultiCameraDetector:
 
     def play_alert_sound(self):
         """Play alert sound for blind spot detection"""
+        if not hasattr(self, 'audio_available') or not self.audio_available:
+            return
+            
         try:
             self.alert_sound.play()
-        except:
+        except Exception as e:
+            logger.error(f"Error playing alert sound: {e}")
             pass  # Ignore audio errors
 
     def stop(self):

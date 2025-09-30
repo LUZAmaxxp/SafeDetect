@@ -1,0 +1,11 @@
+# Core requirements
+opencv-python-headless==4.8.0.74  # Headless version for better Pi performance
+numpy>=1.21.0
+ultralytics>=8.0.0
+kafka-python>=2.0.2
+pygame>=2.1.0
+
+# Pi-specific requirements
+picamera2  # For Pi Camera Module support
+gstreamer-python  # For optimized video streaming
+RPi.GPIO  # For Raspberry Pi GPIO access

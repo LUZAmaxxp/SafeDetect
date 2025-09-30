@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -15,6 +17,45 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - "9092:9092"
+
+  computer-vision:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - kafka
+    volumes:
+      - .:/app/backend
+      - ../shared:/app/backend/shared
+    environment:
+      - KAFKA_HOST=kafka
+      - KAFKA_PORT=9092
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/backend
+      - DISPLAY=host.docker.internal:0
+    restart: unless-stopped
+
+  safedetect-frontend:
+    build:
+      context: ../safedetect
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+
+  web-frontend:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - kafka

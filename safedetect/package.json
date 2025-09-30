@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "server": "cd backend && npm run dev",
-    "start": "concurrently \"npm run dev\" \"npm run server\""
+    "start": "concurrently \"npm run dev\" \"npm run server\"",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -21,7 +22,7 @@
     "react-icons": "^4.7.0",
     "react-router-dom": "^6.8.0",
     "react-use": "^17.4.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/react": "^18.0.28",
