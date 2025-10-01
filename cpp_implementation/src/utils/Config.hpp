@@ -15,7 +15,7 @@ const std::string KAFKA_BROKER = "localhost:9092";
 const std::string KAFKA_TOPIC = "detections";
 
 // Detection settings
-constexpr float MODEL_CONFIDENCE = 0.5f;
+constexpr float MODEL_CONFIDENCE = 0.1f;
 
 // Position scaling
 constexpr float POSITION_SCALE_X = 10.0f;
