@@ -9,7 +9,7 @@ const { Kafka } = require('kafkajs');
 const kafkaConfig = require('./kafka_config');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8082
 
 // WebSocket server
 const wss = new WebSocket.Server({ port: 8081 });
@@ -89,15 +89,19 @@ async function startKafkaConsumer() {
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         try {
+          console.log('Raw message:', message.value.toString());
           const value = JSON.parse(message.value.toString());
-          console.log(`Received Kafka message: ${value.type}`);
+          console.log('Parsed message:', JSON.stringify(value, null, 2));
 
           // Forward detections to WebSocket clients
           if (value.type === 'detections') {
+            console.log('Broadcasting detections to', connectedClients.size, 'clients');
             broadcastToClients(value);
           } else if (value.type === 'status') {
             // Handle status messages if needed
             console.log('Received status:', value.status);
+          } else {
+            console.log('Unknown message type:', value.type);
           }
         } catch (error) {
           console.error('Error processing Kafka message:', error);
