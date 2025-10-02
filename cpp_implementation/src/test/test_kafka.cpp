@@ -16,14 +16,15 @@ int main() {
     }
 
     // Create sample detection data
-    cv::Rect bbox(100, 100, 200, 200);
+    std::vector<float> bbox = {100.0f, 100.0f, 300.0f, 300.0f}; // x1,y1,x2,y2
     float confidence = 0.95f;
     std::string objectClass = "truck";
-    Position3D position{10.0f, 20.0f, 30.0f};
+    int classId = 7; // truck class id
+    Position3D position{10.0f, 20.0f, 30.0f, "left"};
     std::string zone = "left";
 
     // Create detection object
-    Detection detection(bbox, confidence, objectClass, position, zone);
+    Detection detection(bbox, confidence, objectClass, classId, position, zone);
 
     // Try to send the detection
     if (producer.sendDetection(detection)) {

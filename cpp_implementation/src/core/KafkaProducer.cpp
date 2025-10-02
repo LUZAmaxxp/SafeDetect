@@ -4,11 +4,12 @@
 namespace SafeDetect {
 
 KafkaProducer::KafkaProducer(const std::string& broker, const std::string& topic)
-    : brokerList(broker), topicName(topic) {}
+    : brokerList(broker), topicName(topic), deliveryReportCb(new DeliveryReportCbImpl()) {}
 
 KafkaProducer::~KafkaProducer() {
     if (producer) {
-        producer->flush(1000);
+        spdlog::info("Flushing Kafka producer...");
+        producer->flush(5000); // Wait up to 5 seconds for messages to be delivered
     }
 }
 
@@ -24,12 +25,19 @@ bool KafkaProducer::initialize() {
 
 bool KafkaProducer::createProducer() {
     std::string errstr;
-    
+
     // Configure producer
     RdKafka::Conf* conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    
+
     if (conf->set("bootstrap.servers", brokerList, errstr) != RdKafka::Conf::CONF_OK) {
         spdlog::error("Failed to set bootstrap.servers: {}", errstr);
+        delete conf;
+        return false;
+    }
+
+    // Set delivery report callback
+    if (conf->set("dr_cb", deliveryReportCb.get(), errstr) != RdKafka::Conf::CONF_OK) {
+        spdlog::error("Failed to set delivery report callback: {}", errstr);
         delete conf;
         return false;
     }
@@ -50,10 +58,10 @@ bool KafkaProducer::createProducer() {
 
 bool KafkaProducer::createTopic() {
     std::string errstr;
-    
+
     // Configure topic
     RdKafka::Conf* tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
-    
+
     // Create topic handle
     topic.reset(RdKafka::Topic::create(producer.get(), topicName, tconf, errstr));
     delete tconf;
@@ -78,15 +86,15 @@ bool KafkaProducer::sendDetections(const std::vector<Detection>& detections) {
         message["type"] = "detections";
         message["timestamp"] = std::time(nullptr);
         message["detections"] = nlohmann::json::array();
-        
+
         // Add each detection to the array
         for (const auto& detection : detections) {
             message["detections"].push_back(detection.toJson());
         }
-        
+
         // Convert to JSON string
         std::string payload = message.dump();
-        
+
         // Send message
         RdKafka::ErrorCode err = producer->produce(
             topic.get(),
@@ -95,17 +103,17 @@ bool KafkaProducer::sendDetections(const std::vector<Detection>& detections) {
             const_cast<char*>(payload.c_str()),
             payload.size(),
             nullptr,    // Optional key
-            nullptr    // Message opaque
+            nullptr     // Message opaque
         );
 
         if (err != RdKafka::ERR_NO_ERROR) {
-            spdlog::error("Failed to produce message: {}", 
+            spdlog::error("Failed to produce message: {}",
                          RdKafka::err2str(err));
             return false;
         }
 
         // Poll to handle delivery reports
-        producer->poll(0);
+        producer->poll(1000); // Poll for 1 second to process delivery reports
         return true;
 
     } catch (const std::exception& e) {

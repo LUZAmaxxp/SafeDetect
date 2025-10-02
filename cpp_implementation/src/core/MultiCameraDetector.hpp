@@ -40,6 +40,11 @@ private:
     bool isRunning;
     static bool shouldExit;
 
+    // FPS tracking
+    int frameCount;
+    std::chrono::steady_clock::time_point lastFpsTime;
+    double fps;
+
     // Signal handler
     static void signalHandler(int signum);
 

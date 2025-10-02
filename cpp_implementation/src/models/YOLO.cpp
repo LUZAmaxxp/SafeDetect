@@ -89,7 +89,7 @@ std::vector<YOLOResult> YOLO::detect(const cv::Mat& frame) {
 
 std::vector<YOLOResult> YOLO::processOutput(const std::vector<cv::Mat>& outputs,
                                           const cv::Mat& frame) {
-    std::vector<YOLOResult> results;
+    std::vector<YOLOResult> temp_results;
 
     // YOLOv8 output format: [1, 84, 8400] -> Mat shape (84, 8400)
     // Each column represents one detection box
@@ -131,6 +131,7 @@ std::vector<YOLOResult> YOLO::processOutput(const std::vector<cv::Mat>& outputs,
                 YOLOResult result;
                 result.confidence = confidence;
                 result.className = classNames[class_id.x];
+                result.classId = class_id.x;
 
                 // Bounding box is center x,y,w,h in normalized coordinates (0-1)
                 // Scale to frame pixel coordinates
@@ -141,10 +142,28 @@ std::vector<YOLOResult> YOLO::processOutput(const std::vector<cv::Mat>& outputs,
                     static_cast<int>(h * frame.rows)
                 );
 
-                results.push_back(result);
+                temp_results.push_back(result);
             }
         }
     }
+
+    // Apply Non-Maximum Suppression (NMS)
+    std::vector<cv::Rect> boxes;
+    std::vector<float> confidences;
+    for (const auto& res : temp_results) {
+        boxes.push_back(res.bbox);
+        confidences.push_back(res.confidence);
+    }
+
+    std::vector<int> indices;
+    cv::dnn::NMSBoxes(boxes, confidences, MODEL_CONFIDENCE, NMS_THRESHOLD, indices);
+
+    std::vector<YOLOResult> results;
+    for (int idx : indices) {
+        results.push_back(temp_results[idx]);
+    }
+
+    spdlog::debug("After NMS: {} detections kept from {} initial", results.size(), temp_results.size());
 
     return results;
 }

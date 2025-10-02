@@ -10,25 +10,28 @@ struct Position3D {
     float x;
     float y;
     float z;
-    
+    std::string zone;
+
     nlohmann::json toJson() const {
         return {
             {"x", x},
             {"y", y},
-            {"z", z}
+            {"z", z},
+            {"zone", zone}
         };
     }
 };
 
 class Detection {
 public:
-    Detection(const cv::Rect& bbox, float conf, const std::string& objClass, 
+    Detection(const std::vector<float>& bbox, float conf, const std::string& objClass, int classId,
              const Position3D& pos, const std::string& zone);
 
     // Getters
-    const cv::Rect& getBoundingBox() const { return boundingBox; }
+    const std::vector<float>& getBbox() const { return bbox; }
     float getConfidence() const { return confidence; }
     const std::string& getObjectClass() const { return objectClass; }
+    int getClassId() const { return classId; }
     const Position3D& getPosition() const { return position; }
     const std::string& getZone() const { return cameraZone; }
 
@@ -36,9 +39,10 @@ public:
     nlohmann::json toJson() const;
 
 private:
-    cv::Rect boundingBox;
+    std::vector<float> bbox;
     float confidence;
     std::string objectClass;
+    int classId;
     Position3D position;
     std::string cameraZone;
     double timestamp;

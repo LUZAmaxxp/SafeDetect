@@ -1,7 +1,7 @@
-- [x] Fix data indexing in YOLO::processOutput to use row-major order
-- [x] Add debug logs for output shape and sample bbox/class values
-- [x] Change blobFromImage swapRB to true for RGB input
-- [x] Rebuild the C++ project
-- [x] Test detection with person in front of camera
-- [x] Fix blind spot detection logic to use normalized coordinates
-- [ ] Verify Kafka messages are received by Node.js backend
+# TODO: Modify C++ MultiCameraDetector to Match Python Implementation
+
+## Tasks
+- [x] Modify YOLO.hpp/.cpp to include class_id in YOLOResult
+- [x] Update Detection.hpp/.cpp: add class_id, change bbox to vector<float>, add zone to Position3D, update toJson to match Python format
+- [x] Modify MultiCameraDetector.cpp: processFrame to send ALL detections (not just blind spot), update calculatePosition
+- [x] Test the changes by building and running the C++ implementation

@@ -12,6 +12,7 @@ struct YOLOResult {
     cv::Rect bbox;
     float confidence;
     std::string className;
+    int classId;
 };
 
 class YOLO {

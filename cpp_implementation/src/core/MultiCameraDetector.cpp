@@ -12,9 +12,10 @@ void MultiCameraDetector::signalHandler(int signum) {
     shouldExit = true;
 }
 
-MultiCameraDetector::MultiCameraDetector() : isRunning(false) {
+MultiCameraDetector::MultiCameraDetector() : isRunning(false), frameCount(0), fps(0.0) {
     detector = std::make_unique<YOLO>("yolov8n.pt");
     producer = std::make_unique<KafkaProducer>(KAFKA_BROKER, KAFKA_TOPIC);
+    lastFpsTime = std::chrono::steady_clock::now();
 }
 
 MultiCameraDetector::~MultiCameraDetector() {
@@ -139,83 +140,107 @@ std::vector<Detection> MultiCameraDetector::processFrame(cv::Mat& frame, const s
                      result.className, x_center, y_center,
                      position.x, position.y, position.z, result.confidence);
 
-        if (isInBlindSpot(x_center, y_center, zone)) {
-            spdlog::info("Object {} in blind spot for {} zone", result.className, zone);
-            detections.emplace_back(result.bbox, result.confidence,
-                                  result.className, position, zone);
-        }
+        // Create bbox as [x1, y1, x2, y2]
+        std::vector<float> bbox = {
+            static_cast<float>(result.bbox.x),
+            static_cast<float>(result.bbox.y),
+            static_cast<float>(result.bbox.x + result.bbox.width),
+            static_cast<float>(result.bbox.y + result.bbox.height)
+        };
+
+        detections.emplace_back(bbox, result.confidence, result.className, result.classId, position, zone);
     }
 
     return detections;
 }
 
 void MultiCameraDetector::processCameraFeeds() {
-    while (isRunning && !shouldExit) {
-        // Process each camera synchronously
-        for (auto& camera : cameras) {
-            if (!camera.isActive) {
-                // Try to reconnect inactive cameras periodically
-                static int reconnectAttempt = 0;
-                if (++reconnectAttempt % 100 == 0) { // Try every 100 iterations
-                    camera.capture.release();
-                    camera.capture.open(camera.id);
-                    if (camera.capture.isOpened()) {
-                        camera.isActive = true;
-                        spdlog::info("Successfully reconnected {} camera", camera.zone);
+    spdlog::info("🎥 Starting detection loop... (Press Ctrl+C to stop)");
+
+    try {
+        while (isRunning && !shouldExit) {
+            // Process each camera synchronously
+            for (auto& camera : cameras) {
+                if (!camera.isActive) {
+                    // Try to reconnect inactive cameras periodically
+                    static int reconnectAttempt = 0;
+                    if (++reconnectAttempt % 100 == 0) { // Try every 100 iterations
+                        camera.capture.release();
+                        camera.capture.open(camera.id);
+                        if (camera.capture.isOpened()) {
+                            camera.isActive = true;
+                            spdlog::info("Successfully reconnected {} camera", camera.zone);
+                        }
+                    }
+                    continue;
+                }
+
+                cv::Mat frame;
+                bool frameRead = false;
+                for (int retries = 0; retries < 3; retries++) {
+                    try {
+                        if (camera.capture.read(frame)) {
+                            frameRead = true;
+                            break;
+                        }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    } catch (const cv::Exception& e) {
+                        spdlog::warn("OpenCV exception while reading frame: {}", e.what());
                     }
                 }
-                continue;
-            }
 
-            cv::Mat frame;
-            bool frameRead = false;
-            for (int retries = 0; retries < 3; retries++) {
+                if (!frameRead) {
+                    spdlog::error("Failed to read frame from {} camera after retries", camera.zone);
+                    camera.isActive = false;
+                    continue;
+                }
+
+                if (frame.empty()) {
+                    spdlog::warn("Empty frame received from {} camera", camera.zone);
+                    continue;
+                }
+
                 try {
-                    if (camera.capture.read(frame)) {
-                        frameRead = true;
-                        break;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                } catch (const cv::Exception& e) {
-                    spdlog::warn("OpenCV exception while reading frame: {}", e.what());
-                }
-            }
-
-            if (!frameRead) {
-                spdlog::error("Failed to read frame from {} camera after retries", camera.zone);
-                camera.isActive = false;
-                continue;
-            }
-
-            if (frame.empty()) {
-                spdlog::warn("Empty frame received from {} camera", camera.zone);
-                continue;
-            }
-
-            try {
-                auto detections = processFrame(frame, camera.zone);
-                if (!detections.empty()) {
-                    spdlog::info("Detected {} objects in {} camera zone", detections.size(), camera.zone);
-                    for (const auto& det : detections) {
-                        spdlog::debug("Detection: {} at ({:.2f}, {:.2f}, {:.2f}) confidence {:.2f}",
-                                    det.getObjectClass(), det.getPosition().x, det.getPosition().y, det.getPosition().z, det.getConfidence());
-                    }
-                    if (producer->sendDetections(detections)) {
-                        spdlog::info("Successfully sent {} detections to Kafka", detections.size());
+                    auto detections = processFrame(frame, camera.zone);
+                    if (!detections.empty()) {
+                        spdlog::info("Detected {} objects in {} camera zone", detections.size(), camera.zone);
+                        for (const auto& det : detections) {
+                            spdlog::debug("Detection: {} at ({:.2f}, {:.2f}, {:.2f}) confidence {:.2f}",
+                                        det.getObjectClass(), det.getPosition().x, det.getPosition().y, det.getPosition().z, det.getConfidence());
+                        }
+                        if (producer->sendDetections(detections)) {
+                            spdlog::info("Successfully sent {} detections to Kafka", detections.size());
+                        } else {
+                            spdlog::error("Failed to send detections to Kafka");
+                        }
                     } else {
-                        spdlog::error("Failed to send detections to Kafka");
+                        spdlog::debug("No detections in {} camera zone", camera.zone);
                     }
-                } else {
-                    spdlog::debug("No detections in {} camera zone", camera.zone);
+                } catch (const std::exception& e) {
+                    spdlog::error("Error processing frame from {} camera: {}", camera.zone, e.what());
                 }
-            } catch (const std::exception& e) {
-                spdlog::error("Error processing frame from {} camera: {}", camera.zone, e.what());
             }
-        }
 
-        // Small delay to prevent CPU overload
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            // Calculate FPS
+            frameCount++;
+            auto currentTime = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastFpsTime).count();
+
+            if (elapsed >= 1.0) {
+                fps = frameCount / static_cast<double>(elapsed);
+                spdlog::info("FPS: {:.1f}", fps);
+                frameCount = 0;
+                lastFpsTime = currentTime;
+            }
+
+            // Small delay to maintain target FPS
+            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(1000.0 / FPS_TARGET)));
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("Fatal error in detection loop: {}", e.what());
     }
+
+    spdlog::info("⏹️ Detection loop stopped");
 }
 
 bool MultiCameraDetector::isInBlindSpot(float x_center, float y_center, const std::string& zone) {
@@ -224,16 +249,17 @@ bool MultiCameraDetector::isInBlindSpot(float x_center, float y_center, const st
             y_center >= zoneConfig.yMin && y_center <= zoneConfig.yMax);
 }
 
-Position3D MultiCameraDetector::calculatePosition(const cv::Rect& bbox, 
+Position3D MultiCameraDetector::calculatePosition(const cv::Rect& bbox,
                                                 int frameWidth, int frameHeight,
                                                 const std::string& zone) {
     float x_center = (bbox.x + bbox.width/2.0f) / frameWidth;
     float y_center = (bbox.y + bbox.height/2.0f) / frameHeight;
-    
+
     Position3D position;
     position.x = x_center * POSITION_SCALE_X;
     position.y = y_center * POSITION_SCALE_Y;
-    
+    position.zone = zone;
+
     // Set Z based on camera zone
     if (zone == "left") {
         position.z = 4.0f;
@@ -242,7 +268,7 @@ Position3D MultiCameraDetector::calculatePosition(const cv::Rect& bbox,
     } else {
         position.z = 0.0f;
     }
-    
+
     return position;
 }
 

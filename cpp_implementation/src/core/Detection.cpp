@@ -3,28 +3,25 @@
 
 namespace SafeDetect {
 
-Detection::Detection(const cv::Rect& bbox, float conf, const std::string& objClass,
+Detection::Detection(const std::vector<float>& bbox, float conf, const std::string& objClass, int classId,
                    const Position3D& pos, const std::string& zone)
-    : boundingBox(bbox),
+    : bbox(bbox),
       confidence(conf),
       objectClass(objClass),
+      classId(classId),
       position(pos),
       cameraZone(zone),
       timestamp(std::chrono::system_clock::now().time_since_epoch().count()) {}
 
 nlohmann::json Detection::toJson() const {
     return {
-        {"bounding_box", {
-            {"x", boundingBox.x},
-            {"y", boundingBox.y},
-            {"width", boundingBox.width},
-            {"height", boundingBox.height}
-        }},
+        {"bbox", bbox},
         {"confidence", confidence},
-        {"object", objectClass},  // Changed from object_class to object to match frontend
+        {"object", objectClass},
+        {"class_id", classId},
         {"position", position.toJson()},
         {"camera_zone", cameraZone},
-        {"timestamp", timestamp}
+        {"timestamp", timestamp / 1000000000.0}  // Convert nanoseconds to seconds
     };
 }
 
