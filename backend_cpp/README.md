@@ -48,7 +48,8 @@ mkdir build
 cd build
 
 # Configure with CMake
-cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 17 2022" -A x64
+
 
 # Build
 cmake --build . --config Release
