@@ -1,0 +1,11 @@
+{
+  "name": "safedetect-cpp",
+  "version": "1.0.0",
+  "dependencies": [
+    "opencv",
+    "cppkafka",
+    "sdl2",
+    "nlohmann-json",
+    "spdlog"
+  ]
+}

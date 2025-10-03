@@ -93,15 +93,26 @@ async function startKafkaConsumer() {
           const value = JSON.parse(message.value.toString());
           console.log('Parsed message:', JSON.stringify(value, null, 2));
 
-          // Forward detections to WebSocket clients
-          if (value.type === 'detections') {
-            console.log('Broadcasting detections to', connectedClients.size, 'clients');
+          // Handle different message formats
+          if (Array.isArray(value)) {
+            // C++ detections - array of detection objects
+            console.log('Broadcasting C++ detections to', connectedClients.size, 'clients');
+            const detectionsMessage = {
+              type: 'detections',
+              detections: value,
+              source: 'cpp',
+              timestamp: Date.now()
+            };
+            broadcastToClients(detectionsMessage);
+          } else if (value.type === 'detections') {
+            // Python detections - structured message
+            console.log('Broadcasting Python detections to', connectedClients.size, 'clients');
             broadcastToClients(value);
           } else if (value.type === 'status') {
             // Handle status messages if needed
             console.log('Received status:', value.status);
           } else {
-            console.log('Unknown message type:', value.type);
+            console.log('Unknown message type:', value.type || 'undefined');
           }
         } catch (error) {
           console.error('Error processing Kafka message:', error);
