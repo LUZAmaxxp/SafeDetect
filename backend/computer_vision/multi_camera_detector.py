@@ -10,10 +10,6 @@ from ultralytics import YOLO
 import time
 import asyncio
 import platform
-from .pi_utils import init_picamera, optimize_frame
-
-# Check if running on Raspberry Pi
-IS_RASPBERRY_PI = platform.machine().startswith('arm') or platform.machine().startswith('aarch')
 import json
 import sys
 import os
