@@ -79,14 +79,14 @@ endif()
 # -----------------------------
 # Copy YOLO model next to .exe
 # -----------------------------
-if(EXISTS ${CMAKE_SOURCE_DIR}/models/yolov8n.onnx)
+if(EXISTS ${CMAKE_SOURCE_DIR}/models/yolov10n.onnx)
     add_custom_command(
         TARGET safedetect POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_SOURCE_DIR}/models/yolov8n.onnx
-            $<TARGET_FILE_DIR:safedetect>/yolov8n.onnx
+            ${CMAKE_SOURCE_DIR}/models/yolov10n.onnx
+            $<TARGET_FILE_DIR:safedetect>/yolov10n.onnx
     )
     message(STATUS "Model file will be copied next to the executable")
 else()
-    message(WARNING "Model file not found at ${CMAKE_SOURCE_DIR}/models/yolov8n.onnx")
+    message(WARNING "Model file not found at ${CMAKE_SOURCE_DIR}/models/yolov10n.onnx")
 endif()

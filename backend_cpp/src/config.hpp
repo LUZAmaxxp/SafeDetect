@@ -23,7 +23,7 @@ const std::string KAFKA_TOPIC = "detections";
 // -----------------------------
 // Detection Configuration
 // -----------------------------
-const float MODEL_CONFIDENCE = 0.25f;  // Lowered for YOLOv8 default
+const float MODEL_CONFIDENCE = 0.80f;  // Further lowered for consistent detection
 
 struct BlindSpotZone {
     float x_min, x_max, y_min, y_max;

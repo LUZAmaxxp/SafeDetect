@@ -52,6 +52,8 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -G "Vi
 
 
 # Build
+cd C:\Users\pc\Desktop\SafeDetect\backend_cpp\build
+
 cmake --build . --config Release
 ```
 
