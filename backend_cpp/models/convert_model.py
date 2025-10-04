@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert YOLOv8 model to OpenCV DNN compatible format
+Convert YOLOv10 model to OpenCV DNN compatible format
 """
 
 import cv2
@@ -11,11 +11,11 @@ from ultralytics import YOLO
 import sys
 import os
 
-def convert_yolov8_to_opencv_dnn(model_path, output_path):
+def convert_yolov10_to_opencv_dnn(model_path, output_path):
     """
-    Convert YOLOv8 ONNX model to OpenCV DNN compatible format
+    Convert YOLOv10 ONNX model to OpenCV DNN compatible format
     """
-    print(f"Loading YOLOv8 model from {model_path}")
+    print(f"Loading YOLOv10 model from {model_path}")
 
     # Load the model with ONNX Runtime
     session = ort.InferenceSession(model_path)
@@ -34,7 +34,7 @@ def convert_yolov8_to_opencv_dnn(model_path, output_path):
     print(f"Output shapes: {[out.shape for out in outputs]}")
 
     # For OpenCV DNN compatibility, we need to modify the model
-    # YOLOv8 has multiple outputs, but OpenCV DNN expects a single output
+    # YOLOv10 has multiple outputs, but OpenCV DNN expects a single output
     # We'll use the first output (usually the main detection output)
 
     # Save the model as is - OpenCV DNN should be able to handle it
@@ -47,65 +47,61 @@ def convert_yolov8_to_opencv_dnn(model_path, output_path):
     print("Model conversion completed")
     return True
 
-def download_yolov8n_opencv_compatible(output_path):
+def download_yolov10n_onnx(output_path):
     """
-    Download a pre-converted YOLOv8n model that's compatible with OpenCV DNN
+    Download and export YOLOv10n model to ONNX format using Ultralytics
     """
-    import urllib.request
-    import zipfile
-
-    # URL to a pre-converted YOLOv8n model for OpenCV DNN
-    # This is a model that has been tested to work with OpenCV DNN
-    url = "https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov8n.weights"
-    cfg_url = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov8n.cfg"
-
-    print("Downloading YOLOv8n weights and config for OpenCV DNN compatibility...")
+    print("Downloading and exporting YOLOv10n to ONNX...")
 
     try:
-        # Download weights
-        weights_path = output_path.replace('.onnx', '.weights')
-        cfg_path = output_path.replace('.onnx', '.cfg')
+        # Load YOLOv10n model
+        model = YOLO('yolov10n.pt')  # This will download if not present
 
-        print(f"Downloading weights to {weights_path}")
-        urllib.request.urlretrieve(url, weights_path)
+        # Export to ONNX
+        model.export(format='onnx', opset=11)  # Use opset 11 for OpenCV compatibility
 
-        print(f"Downloading config to {cfg_path}")
-        urllib.request.urlretrieve(cfg_url, cfg_path)
-
-        print("Download completed. Note: This creates .weights and .cfg files instead of .onnx")
-        print("You'll need to update the C++ code to use Darknet format instead of ONNX")
-        return weights_path, cfg_path
+        # Move the exported model to output_path
+        import shutil
+        exported_path = 'yolov10n.onnx'
+        if os.path.exists(exported_path):
+            shutil.move(exported_path, output_path)
+            print(f"YOLOv10n ONNX model exported to {output_path}")
+            return output_path
+        else:
+            print("Export failed: ONNX file not found")
+            return None
 
     except Exception as e:
-        print(f"Download failed: {e}")
-        return None, None
+        print(f"Download/Export failed: {e}")
+        return None
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python convert_model.py <input_model.onnx> [output_model.onnx]")
-        print("Or run without arguments to download a compatible model")
+        print("Or run without arguments to download YOLOv10n ONNX model")
         sys.exit(1)
 
     input_model = sys.argv[1]
-    output_model = sys.argv[2] if len(sys.argv) > 2 else "yolov8n_opencv.onnx"
+    output_model = sys.argv[2] if len(sys.argv) > 2 else "yolov10n.onnx"
 
     if not os.path.exists(input_model):
         print(f"Input model {input_model} not found")
-        print("Attempting to download a compatible model...")
-        weights, cfg = download_yolov8n_opencv_compatible(output_model)
-        if weights and cfg:
-            print(f"Downloaded: {weights} and {cfg}")
-            print("Note: Update C++ code to use Darknet format (cv::dnn::readNetFromDarknet)")
+        print("Attempting to download YOLOv10n ONNX model...")
+        result = download_yolov10n_onnx(output_model)
+        if result:
+            print(f"Downloaded and exported: {result}")
+        else:
+            print("Download failed")
         sys.exit(1)
 
     try:
-        convert_yolov8_to_opencv_dnn(input_model, output_model)
+        convert_yolov10_to_opencv_dnn(input_model, output_model)
         print(f"Conversion completed: {output_model}")
     except Exception as e:
         print(f"Conversion failed: {e}")
         print("Trying alternative approach...")
 
-        # Alternative: download a known working model
-        weights, cfg = download_yolov8n_opencv_compatible(output_model)
-        if weights and cfg:
-            print(f"Fallback download successful: {weights} and {cfg}")
+        # Alternative: download YOLOv10n
+        result = download_yolov10n_onnx(output_model)
+        if result:
+            print(f"Fallback download successful: {result}")

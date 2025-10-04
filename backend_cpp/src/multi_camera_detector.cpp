@@ -1,6 +1,8 @@
 #include "multi_camera_detector.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <algorithm>
+#include <future>
 
 namespace safedetect {
 
@@ -35,24 +37,40 @@ MultiCameraDetector::~MultiCameraDetector() {
 
 bool MultiCameraDetector::start_cameras() {
     spdlog::info("Starting multi-camera system...");
-    int success_count = 0;
 
+    std::vector<std::future<std::pair<std::string, cv::VideoCapture>>> futures;
+
+    // Launch async tasks to open cameras in parallel
     for (const auto& [zone, config] : CAMERA_CONFIG) {
-        spdlog::info("Starting {} (Camera ID: {})...", config.name, config.camera_id);
+        futures.push_back(std::async(std::launch::async, [zone, &config]() -> std::pair<std::string, cv::VideoCapture> {
+            spdlog::info("Starting {} (Camera ID: {})...", config.name, config.camera_id);
+            cv::VideoCapture cap(config.camera_id);
+            if (cap.isOpened()) {
+                cap.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH);
+                cap.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT);
+                cap.set(cv::CAP_PROP_FPS, FPS_TARGET);
+                return {zone, std::move(cap)};
+            } else {
+                spdlog::error("{}: Failed to open camera {}", config.name, config.camera_id);
+                return {zone, cv::VideoCapture()}; // empty capture
+            }
+        }));
+    }
 
-        cv::VideoCapture cap(config.camera_id);
+    int success_count = 0;
+    cameras_.clear();
+    camera_status_.clear();
+
+    // Collect results
+    for (auto& fut : futures) {
+        auto [zone, cap] = fut.get();
         if (cap.isOpened()) {
-            cap.set(cv::CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH);
-            cap.set(cv::CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT);
-            cap.set(cv::CAP_PROP_FPS, FPS_TARGET);
-
             cameras_[zone] = std::move(cap);
             camera_status_[zone] = "available";
-            spdlog::info("{}: Connected successfully", config.name);
+            spdlog::info("{}: Connected successfully", zone);
             success_count++;
         } else {
             camera_status_[zone] = "error";
-            spdlog::error("{}: Failed to open camera {}", config.name, config.camera_id);
         }
     }
 
@@ -126,51 +144,74 @@ std::vector<Detection> MultiCameraDetector::process_all_cameras() {
         cv::Mat output = outputs[0];
         float* data = (float*)output.data;
 
-        int num_boxes = (output.dims == 3) ? output.size[2] : output.size[0];
-        int num_classes = 80;
+        // Log output shape
+        spdlog::info("YOLO output shape: {} x {} x {}", output.size[0], output.size[1], output.size[2]);
+
+        // Log first few detections
+        for (int i = 0; i < std::min(5, (int)output.size[1]); i++) {
+            int offset = i * 6;
+            spdlog::info("Detection {}: x={}, y={}, w={}, h={}, conf={}, cls={}",
+                         i, data[offset], data[offset+1], data[offset+2], data[offset+3], data[offset+4], data[offset+5]);
+        }
+
+        // YOLOv10 output shape: (1, 300, 6) -> [x, y, w, h, conf, cls]
+        int num_boxes = output.size[1];  // 300
 
         std::vector<cv::Rect> boxes;
         std::vector<float> confidences;
         std::vector<int> classIds;
 
         for (int i = 0; i < num_boxes; i++) {
-            int offset = (output.dims == 3) ? i : i * 84;
+            int offset = i * 6;
 
             float x = data[offset + 0];
             float y = data[offset + 1];
             float w = data[offset + 2];
             float h = data[offset + 3];
-            float obj_conf = data[offset + 4];
-
-            cv::Mat scores(1, num_classes, CV_32F, &data[offset + 5]);
-            cv::Point classIdPoint;
-            double max_class_score;
-            cv::minMaxLoc(scores, nullptr, &max_class_score, nullptr, &classIdPoint);
-
-            float confidence = obj_conf * (float)max_class_score;
+            float confidence = data[offset + 4];
+            int class_id = static_cast<int>(data[offset + 5]);
 
             // Only process "person" or "car"
             if (confidence > MODEL_CONFIDENCE &&
-                OBJECT_CLASSES.count(classIdPoint.x) &&
-                (OBJECT_CLASSES.at(classIdPoint.x) == "person" || OBJECT_CLASSES.at(classIdPoint.x) == "car")) {
+                OBJECT_CLASSES.count(class_id) &&
+                (OBJECT_CLASSES.at(class_id) == "person" || OBJECT_CLASSES.at(class_id) == "car")) {
 
-                int x1 = static_cast<int>((x - w / 2) * frame.cols / 640.0);
-                int y1 = static_cast<int>((y - h / 2) * frame.rows / 640.0);
-                int x2 = static_cast<int>((x + w / 2) * frame.cols / 640.0);
-                int y2 = static_cast<int>((y + h / 2) * frame.rows / 640.0);
+                int x1 = static_cast<int>(x - w / 2.0f);
+                int y1 = static_cast<int>(y - h / 2.0f);
+                int x2 = static_cast<int>(x + w / 2.0f);
+                int y2 = static_cast<int>(y + h / 2.0f);
+
+                // Skip invalid boxes
+                if (x2 <= x1 || y2 <= y1 || w <= 0 || h <= 0) continue;
 
                 cv::Rect bbox(x1, y1, x2 - x1, y2 - y1);
                 bbox &= cv::Rect(0, 0, frame.cols, frame.rows);
 
+                // Skip if bbox becomes invalid after clipping
+                if (bbox.width <= 0 || bbox.height <= 0) continue;
+
+                // Skip small boxes to reduce false positives
+                if (bbox.width * bbox.height < 10000) continue;
+
                 boxes.push_back(bbox);
                 confidences.push_back(confidence);
-                classIds.push_back(classIdPoint.x);
+                classIds.push_back(class_id);
             }
         }
 
         // Apply Non-Maximum Suppression
         std::vector<int> indices;
-        cv::dnn::NMSBoxes(boxes, confidences, MODEL_CONFIDENCE, 0.4f, indices);
+        cv::dnn::NMSBoxes(boxes, confidences, MODEL_CONFIDENCE, 0.5f, indices);
+
+        // Limit to top 1 detection per frame to reduce false positives
+        if (!indices.empty()) {
+            // Sort by confidence descending
+            std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+                return confidences[a] > confidences[b];
+            });
+            // Take only the top 1
+            indices.resize(1);
+        }
 
         std::vector<Detection> detections;
         for (int idx : indices) {
@@ -244,6 +285,11 @@ Detection MultiCameraDetector::calculate_detection(const cv::Rect& bbox, int fra
     float x_center = (bbox.x + bbox.width / 2.0f) / frame_width;
     float y_center = (bbox.y + bbox.height / 2.0f) / frame_height;
 
+    // Debug logging
+    spdlog::info("Detection bbox: x1={}, y1={}, x2={}, y2={}, frame_size={}x{}",
+                 bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height, frame_width, frame_height);
+    spdlog::info("Detection center: x_center={}, y_center={}", x_center, y_center);
+
     detection.position.x = x_center * POSITION_SCALE.x;
     detection.position.y = y_center * POSITION_SCALE.y;
 
@@ -253,6 +299,10 @@ Detection MultiCameraDetector::calculate_detection(const cv::Rect& bbox, int fra
     else detection.position.z = 0.0f;
 
     detection.position.zone = zone;
+
+    spdlog::info("Detection position: x={}, y={}, z={}, zone={}",
+                 detection.position.x, detection.position.y, detection.position.z, detection.position.zone);
+
     return detection;
 }
 

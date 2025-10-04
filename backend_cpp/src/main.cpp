@@ -26,7 +26,7 @@ void signal_handler(int signal) {
 void test_multi_camera_system() {
     spdlog::set_level(spdlog::level::info);
 
-    MultiCameraDetector detector("yolov8n.onnx");
+    MultiCameraDetector detector("yolov10n.onnx");
 
     // Register signal handler for graceful shutdown
     std::signal(SIGINT, signal_handler);
