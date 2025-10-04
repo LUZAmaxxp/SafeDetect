@@ -62,7 +62,7 @@ const float ALERT_DURATION = 0.5f;     // seconds
 // -----------------------------
 const int CAMERA_WIDTH = 640;
 const int CAMERA_HEIGHT = 480;
-const int FPS_TARGET = 15;
+const int FPS_TARGET = 60;
 
 struct CameraConfig {
     int camera_id;

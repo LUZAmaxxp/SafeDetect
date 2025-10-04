@@ -38,6 +38,7 @@ const SignUpForm: React.FC = () => {
       toast.success(
         "Account created successfully! Please check your email to verify your account."
       );
+      // Optionally reset form or redirect user here
     } catch (error: any) {
       toast.error(error.message || "Sign up failed");
     } finally {
@@ -48,15 +49,28 @@ const SignUpForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
       <div className="form-group">
-        <label className="form-label">Name</label>
+        <label className="form-label">First Name</label>
         <input
           type="text"
           className="form-input"
           {...register("firstName")}
-          placeholder="Enter your full name"
+          placeholder="Enter your first name"
         />
         {errors.firstName && (
           <p className="form-error">{errors.firstName.message}</p>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Last Name</label>
+        <input
+          type="text"
+          className="form-input"
+          {...register("lastName")}
+          placeholder="Enter your last name"
+        />
+        {errors.lastName && (
+          <p className="form-error">{errors.lastName.message}</p>
         )}
       </div>
 
@@ -81,6 +95,19 @@ const SignUpForm: React.FC = () => {
         />
         {errors.password && (
           <p className="form-error">{errors.password.message}</p>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Confirm Password</label>
+        <input
+          type="password"
+          className="form-input"
+          {...register("confirmPassword")}
+          placeholder="Confirm your password"
+        />
+        {errors.confirmPassword && (
+          <p className="form-error">{errors.confirmPassword.message}</p>
         )}
       </div>
 

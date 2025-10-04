@@ -43,16 +43,18 @@ cd vcpkg
 ### 2. Build the Project
 
 ```bash
+
 # Create build directory
 mkdir build
 cd build
+cd C:\Users\pc\Desktop\SafeDetect\backend_cpp\build
 
 # Configure with CMake
 cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 17 2022" -A x64
 
 
 # Build
-cd C:\Users\pc\Desktop\SafeDetect\backend_cpp\build
+
 
 cmake --build . --config Release
 ```
