@@ -28,6 +28,8 @@ const SignInForm: React.FC = () => {
     try {
       await signIn(data.email, data.password, data.rememberMe);
       toast.success("Signed in successfully!");
+      // Redirect to the other frontend project after sign in
+      window.location.href = 'http://localhost:8080'; // Change this URL if needed
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {

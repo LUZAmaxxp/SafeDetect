@@ -7,6 +7,7 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 import './index.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
                 <Route path="signup" element={<SignUp />} />
                 <Route path="forgot-password" element={<ForgotPassword />} />
                 <Route path="reset-password" element={<ResetPassword />} />
+                <Route path="verify-email" element={<VerifyEmail />} />
                 <Route index element={<Navigate to="/auth/signin" replace />} />
               </Route>
               <Route path="/" element={<Navigate to="/auth/signin" replace />} />
