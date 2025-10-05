@@ -1,3 +1,8 @@
 - [ ] Modify start_cameras() in backend_cpp/src/multi_camera_detector.cpp to parallelize camera opening using std::async
 - [ ] Build the project to check for compilation errors
 - [ ] Test the startup time to verify improvement
+- [ ] Set up GitHub repository secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_SAFEDETECT_PROJECT_ID, VERCEL_WEB_PROJECT_ID, DOCKER_USERNAME, DOCKER_PASSWORD
+- [ ] Test the frontend Vercel deployment workflow
+- [ ] Test the backend image build and push workflow
+- [ ] Create Kubernetes manifests for deploying the application in a private network
+- [ ] Deploy the Kubernetes cluster and test private communication between services
