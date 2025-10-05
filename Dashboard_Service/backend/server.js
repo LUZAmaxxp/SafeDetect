@@ -9,7 +9,7 @@ const { Kafka } = require('kafkajs');
 const kafkaConfig = require('./kafka_config');
 
 const app = express();
-const PORT = process.env.PORT || 8082
+const PORT = process.env.PORT || 8082;
 
 // WebSocket server
 const wss = new WebSocket.Server({ port: 8081 });
