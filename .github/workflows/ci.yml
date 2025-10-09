@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [backend-python, auth-frontend, backend-python-alt, dashboard]
+        include:
+          - service: backend-python
+            dockerfile: Dockerfile
+            context: .
+          - service: auth-frontend
+            dockerfile: Authentication_service/Dockerfile
+            context: Authentication_service
+          - service: backend-python-alt
+            dockerfile: backend_Python/Dockerfile
+            context: backend_Python
+          - service: dashboard
+            dockerfile: Dashboard_Service/Dockerfile
+            context: Dashboard_Service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/safedetect-${{ matrix.service }}:latest
