@@ -60,7 +60,7 @@ const float ALERT_DURATION = 0.5f;     // seconds
 // -----------------------------
 // Camera Configuration
 // -----------------------------
-const int CAMERA_WIDTH = 720;
+const int CAMERA_WIDTH = 640;
 const int CAMERA_HEIGHT = 480;
 const int FPS_TARGET = 60;
 
