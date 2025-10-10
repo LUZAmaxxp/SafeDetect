@@ -306,4 +306,4 @@ Detection MultiCameraDetector::calculate_detection(const cv::Rect& bbox, int fra
     return detection;
 }
 
-} // namespace safedetect
+} 
