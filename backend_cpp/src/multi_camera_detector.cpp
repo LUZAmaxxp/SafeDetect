@@ -285,7 +285,7 @@ Detection MultiCameraDetector::calculate_detection(const cv::Rect& bbox, int fra
     float x_center = (bbox.x + bbox.width / 2.0f) / frame_width;
     float y_center = (bbox.y + bbox.height / 2.0f) / frame_height;
 
-    // Debug logging
+    // wakwaaak kterte 3leya 
     spdlog::info("Detection bbox: x1={}, y1={}, x2={}, y2={}, frame_size={}x{}",
                  bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height, frame_width, frame_height);
     spdlog::info("Detection center: x_center={}, y_center={}", x_center, y_center);
