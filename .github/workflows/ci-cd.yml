@@ -27,7 +27,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ lower(github.repository) }}:latest
           file: Dockerfile
 
       - name: Build and push Authentication Service image
@@ -35,7 +35,7 @@ jobs:
         with:
           context: ./Authentication_service
           push: true
-          tags: ghcr.io/${{ github.repository }}/auth:latest
+          tags: ghcr.io/${{ lower(github.repository) }}/auth:latest
           file: ./Authentication_service/Dockerfile
 
       - name: Build and push Python Backend image
@@ -43,7 +43,7 @@ jobs:
         with:
           context: ./backend_Python
           push: true
-          tags: ghcr.io/${{ github.repository }}/python-backend:latest
+          tags: ghcr.io/${{ lower(github.repository) }}/python-backend:latest
           file: ./backend_Python/Dockerfile
 
       - name: Build and push Dashboard Service image
@@ -51,7 +51,7 @@ jobs:
         with:
           context: ./Dashboard_Service
           push: true
-          tags: ghcr.io/${{ github.repository }}/dashboard:latest
+          tags: ghcr.io/${{ lower(github.repository) }}/dashboard:latest
           file: ./Dashboard_Service/Dockerfile
 
   deploy-vercel:
