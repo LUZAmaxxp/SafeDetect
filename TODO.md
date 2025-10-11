@@ -1,8 +1,14 @@
-# CI/CD Setup Tasks
+# CI/CD Pipeline Implementation
 
-- [x] Create .github/workflows directory
-- [x] Create ci.yml workflow for building and pushing Docker images on push
-- [x] Create cd.yml workflow for deploying frontends to Vercel on push to main
-- [x] Set up GitHub secrets for Docker registry and Vercel token
-- [x] Test workflows (manual trigger or push)
-- [x] Fix build issues: added type module and vercel.json for frontends
+## Steps to Complete:
+
+- [x] Create `.github/workflows/ci-cd.yml` with:
+  - Trigger on push to main branch.
+  - Job to build and push Docker images for root, Authentication_service, backend_Python, and Dashboard_Service to GitHub Container Registry (ghcr.io).
+  - Job to deploy Authentication_service and Dashboard_Service to Vercel using Vercel CLI with provided secrets.
+
+- [x] After creation, verify the workflow file syntax and structure.
+
+- [ ] User to test by pushing changes to main branch and monitor GitHub Actions.
+
+- [ ] If issues arise, troubleshoot based on workflow logs (e.g., adjust build contexts or Vercel configs if needed).

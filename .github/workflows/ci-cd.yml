@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push root Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
+          file: Dockerfile
+
+      - name: Build and push Authentication Service image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Authentication_service
+          push: true
+          tags: ghcr.io/${{ github.repository }}/auth:latest
+          file: ./Authentication_service/Dockerfile
+
+      - name: Build and push Python Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend_Python
+          push: true
+          tags: ghcr.io/${{ github.repository }}/python-backend:latest
+          file: ./backend_Python/Dockerfile
+
+      - name: Build and push Dashboard Service image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Dashboard_Service
+          push: true
+          tags: ghcr.io/${{ github.repository }}/dashboard:latest
+          file: ./Dashboard_Service/Dockerfile
+
+  deploy-vercel:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    strategy:
+      matrix:
+        include:
+          - service: auth
+            dir: Authentication_service
+            project_id: ${{ secrets.VERCEL_AUTH_PROJECT_ID }}
+          - service: dashboard
+            dir: Dashboard_Service
+            project_id: ${{ secrets.VERCEL_DASHBOARD_PROJECT_ID }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        run: |
+          cd ${{ matrix.dir }}
+          vercel --prod \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --org-id ${{ secrets.VERCEL_ORG_ID }} \
+            --project-id ${{ matrix.project_id }}
