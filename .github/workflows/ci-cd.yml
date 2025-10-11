@@ -22,12 +22,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lowercase repository name
+        run: echo "LOWER_REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push root Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ lower(github.repository) }}:latest
+          tags: ghcr.io/${{ env.LOWER_REPO }}:latest
           file: Dockerfile
 
       - name: Build and push Authentication Service image
@@ -35,7 +38,7 @@ jobs:
         with:
           context: ./Authentication_service
           push: true
-          tags: ghcr.io/${{ lower(github.repository) }}/auth:latest
+          tags: ghcr.io/${{ env.LOWER_REPO }}/auth:latest
           file: ./Authentication_service/Dockerfile
 
       - name: Build and push Python Backend image
@@ -43,7 +46,7 @@ jobs:
         with:
           context: ./backend_Python
           push: true
-          tags: ghcr.io/${{ lower(github.repository) }}/python-backend:latest
+          tags: ghcr.io/${{ env.LOWER_REPO }}/python-backend:latest
           file: ./backend_Python/Dockerfile
 
       - name: Build and push Dashboard Service image
@@ -51,7 +54,7 @@ jobs:
         with:
           context: ./Dashboard_Service
           push: true
-          tags: ghcr.io/${{ lower(github.repository) }}/dashboard:latest
+          tags: ghcr.io/${{ env.LOWER_REPO }}/dashboard:latest
           file: ./Dashboard_Service/Dockerfile
 
   deploy-vercel:
