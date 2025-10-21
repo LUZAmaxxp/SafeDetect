@@ -11,4 +11,4 @@
 
 - [ ] User to test by pushing changes to main branch and monitor GitHub Actions.
 
-- [ ] If issues arise, troubleshoot based on workflow logs (e.g., adjust build contexts or Vercel configs if needed).
+- [ ] If issues arise, troubleshoot based on workflow logs e.g., adjust build contexts or Vercel configs if need
