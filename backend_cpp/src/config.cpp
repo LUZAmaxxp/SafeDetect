@@ -12,8 +12,8 @@ const std::string WEBSOCKET_HOST = "localhost";
 const int WEBSOCKET_PORT = 8765;
 
 // Kafka Configuration
-const std::string KAFKA_HOST = "localhost";
-const int KAFKA_PORT = 9092;
+const std::string KAFKA_HOST = std::getenv("KAFKA_HOST") ? std::getenv("KAFKA_HOST") : "localhost";
+const int KAFKA_PORT = std::getenv("KAFKA_PORT") ? std::stoi(std::getenv("KAFKA_PORT")) : 9092;
 const std::string KAFKA_TOPIC = "detections";
 
 // Detection Configuration

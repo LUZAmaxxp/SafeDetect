@@ -21,6 +21,10 @@ message(STATUS "Found nlohmann_json")
 find_package(spdlog CONFIG REQUIRED)
 message(STATUS "Found spdlog")
 
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
+message(STATUS "Found OpenSSL")
+
 # SDL2 is optional
 find_package(SDL2 QUIET)
 if(SDL2_FOUND)
@@ -65,6 +69,8 @@ target_link_libraries(safedetect
     CppKafka::cppkafka
     nlohmann_json::nlohmann_json
     spdlog::spdlog
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 # Conditionally link SDL2

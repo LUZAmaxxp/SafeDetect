@@ -6,6 +6,7 @@
     "cppkafka",
     "sdl2",
     "nlohmann-json",
-    "spdlog"
+    "spdlog",
+    "openssl"
   ]
 }

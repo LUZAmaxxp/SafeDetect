@@ -10,6 +10,7 @@
 #include <atomic>
 #include <future>
 #include <chrono>
+#include <cstdlib>
 #include "config.hpp"
 #include "kafka_producer.hpp"
 #include "audio_alert.hpp"
@@ -37,6 +38,9 @@ private:
     double fps_;
     std::chrono::steady_clock::time_point last_time_;
 
+    // Security and integrity
+    std::string detection_secret_key_;
+
     void play_alert_sound();
     bool is_in_blind_spot(float x_center, float y_center, const std::string& zone) const;
     Detection calculate_detection(const cv::Rect& bbox, int frame_width, int frame_height,
@@ -44,6 +48,10 @@ private:
 
     // Added debug display
     void draw_debug(const cv::Mat& frame, const std::vector<Detection>& detections);
+
+    // Integrity verification methods
+    std::string compute_frame_hash(const cv::Mat& frame) const;
+    std::string generate_integrity_hmac(const std::string& message) const;
 };
 
 } // namespace safedetect

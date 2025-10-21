@@ -72,7 +72,7 @@ mkdir models
 ### 4. Run
 
 ```bash
-./safedetect
+KAFKA_HOST=localhost KAFKA_PORT=9092 ./safedetect.exe
 ```
 
 ## Configuration

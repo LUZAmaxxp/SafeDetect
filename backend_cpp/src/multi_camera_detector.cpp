@@ -3,11 +3,18 @@
 #include <chrono>
 #include <algorithm>
 #include <future>
+#include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <sstream>
+#include <iomanip>
 
 namespace safedetect {
 
 MultiCameraDetector::MultiCameraDetector(const std::string& model_path)
     : is_running_(false), frame_count_(0), fps_(0.0) {
+    // Load security key for integrity
+    detection_secret_key_ = std::getenv("DETECTION_SECRET_KEY") ? std::getenv("DETECTION_SECRET_KEY") : "default_key";
+
     // Load YOLO model
     try {
         net_ = cv::dnn::readNetFromONNX(model_path);
@@ -127,6 +134,9 @@ std::vector<Detection> MultiCameraDetector::process_all_cameras() {
             continue;
         }
 
+        // Data integrity check - compute hash of frame data
+        std::string frame_hash = compute_frame_hash(frame);
+
         // Prepare frame for DNN
         cv::Mat blob = cv::dnn::blobFromImage(frame, 1 / 255.0,
                                               cv::Size(640, 640),
@@ -215,8 +225,15 @@ std::vector<Detection> MultiCameraDetector::process_all_cameras() {
 
         std::vector<Detection> detections;
         for (int idx : indices) {
-            detections.push_back(calculate_detection(
-                boxes[idx], frame.cols, frame.rows, zone, classIds[idx], confidences[idx]));
+            Detection detection = calculate_detection(
+                boxes[idx], frame.cols, frame.rows, zone, classIds[idx], confidences[idx]);
+
+            // Add integrity data
+            detection.frame_hash = frame_hash.substr(0, 16);  // Short hash for integrity
+            detection.integrity_hmac = generate_integrity_hmac(
+                detection.object + std::to_string(detection.confidence) + zone + std::to_string(detection.timestamp));
+
+            detections.push_back(detection);
         }
 
         all_detections.insert(all_detections.end(), detections.begin(), detections.end());
@@ -306,4 +323,33 @@ Detection MultiCameraDetector::calculate_detection(const cv::Rect& bbox, int fra
     return detection;
 }
 
-} 
+// Integrity verification methods
+std::string MultiCameraDetector::compute_frame_hash(const cv::Mat& frame) const {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, frame.data, frame.total() * frame.elemSize());
+    SHA256_Final(hash, &sha256);
+
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    }
+    return ss.str();
+}
+
+std::string MultiCameraDetector::generate_integrity_hmac(const std::string& message) const {
+    unsigned char* digest;
+    unsigned int len = EVP_MAX_MD_SIZE;
+
+    digest = HMAC(EVP_sha256(), detection_secret_key_.c_str(), detection_secret_key_.length(),
+                  (unsigned char*)message.c_str(), message.length(), NULL, &len);
+
+    std::stringstream ss;
+    for (unsigned int i = 0; i < len; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)digest[i];
+    }
+    return ss.str();
+}
+
+}
