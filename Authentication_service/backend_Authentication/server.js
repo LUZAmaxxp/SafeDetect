@@ -4,18 +4,95 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const nodemailer = require('nodemailer')
 const mongoose = require('mongoose')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
+const { body, validationResult } = require('express-validator')
+const cookieParser = require('cookie-parser')
+const winston = require('winston')
+const zxcvbn = require('zxcvbn')
 require('dotenv').config()
+
+// Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI', 'EMAIL_USER', 'EMAIL_PASS']
+requiredEnvVars.forEach(varName => {
+  if (!process.env[varName]) {
+    console.error(`Error: Required environment variable ${varName} is not set`)
+    process.exit(1)
+  }
+})
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/safedetect', {
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}))
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use('/api/', limiter)
+
+// Stricter rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 auth requests per windowMs
+  message: 'Too many authentication attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Logging setup
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'auth-service' },
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+})
+
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple(),
+  }))
+}
+
+// Connect to MongoDB with TLS
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  tls: true,
+  tlsAllowInvalidCertificates: false, // Set to true only for development
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err))
+.then(() => logger.info('MongoDB connected securely'))
+.catch(err => {
+  logger.error('MongoDB connection error:', err)
+  process.exit(1)
+})
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -29,7 +106,13 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema)
 
 // Middleware
-app.use(cors())
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}))
+app.use(cookieParser())
 app.use(express.json())
 
 // In-memory storage for temporary tokens (consider using Redis for production)

@@ -67,13 +67,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signIn = async (email: string, password: string, rememberMe = false) => {
     try {
-      const response = await authService.signIn(email, password)
+      const response = await authService.signIn(email, password, rememberMe)
       setUser(response.user)
-      if (rememberMe) {
-        localStorage.setItem('authToken', response.token)
-      } else {
-        sessionStorage.setItem('authToken', response.token)
-      }
+      // Token storage is now handled in authService
     } catch (error) {
       throw error
     }
@@ -83,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authService.signUp(userData)
       setUser(response.user)
-      localStorage.setItem('authToken', response.token)
+      // Token storage is now handled in authService
     } catch (error) {
       throw error
     }
@@ -96,8 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Sign out error:', error)
     } finally {
       setUser(null)
-      localStorage.removeItem('authToken')
-      sessionStorage.removeItem('authToken')
+      // Token cleanup is now handled in authService
     }
   }
 
