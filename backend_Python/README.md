@@ -99,7 +99,7 @@ node server.js
 ```
 cd backend
 source venv/bin/activate
-python computer_vision/multi_camera_detector.py
+python computer_vision/KAFKA_HOST=localhost KAFKA_PORT=9092 python multi_camera_detector.py
 ```
 - Starts multi-camera processing (left: ID 0, right: ID 1, rear: ID 2)
 - Connects cameras, runs YOLOv8 detection

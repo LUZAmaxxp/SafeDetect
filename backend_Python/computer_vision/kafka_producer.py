@@ -6,9 +6,11 @@ Sends detection results to Kafka topic in real-time
 import json
 import time
 from kafka import KafkaProducer
+from kafka.errors import KafkaError
 from typing import List, Dict
 import sys
 import os
+import ssl
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.config import KAFKA_HOST, KAFKA_PORT, KAFKA_TOPIC
 import logging
@@ -27,11 +29,37 @@ class DetectionKafkaProducer:
         self.producer = None
         self.is_running = False
 
+        # Security configuration from environment
+        self.security_protocol = os.environ.get('KAFKA_SECURITY_PROTOCOL', 'PLAINTEXT')
+        self.sasl_mechanism = os.environ.get('KAFKA_SASL_MECHANISM', 'PLAIN')
+        self.sasl_username = os.environ.get('KAFKA_SASL_USERNAME')
+        self.sasl_password = os.environ.get('KAFKA_SASL_PASSWORD')
+        self.ssl_cafile = os.environ.get('KAFKA_SSL_CAFILE')
+        self.ssl_certfile = os.environ.get('KAFKA_SSL_CERTFILE')
+        self.ssl_keyfile = os.environ.get('KAFKA_SSL_KEYFILE')
+
     def start_producer(self):
         """Start the Kafka producer"""
         if self.is_running:
             logger.warning("Producer is already running")
             return
+
+        # Build security configuration
+        security_config = {}
+        if self.security_protocol != 'PLAINTEXT':
+            security_config['security_protocol'] = self.security_protocol
+            if self.sasl_username and self.sasl_password:
+                security_config['sasl_mechanism'] = self.sasl_mechanism
+                security_config['sasl_plain_username'] = self.sasl_username
+                security_config['sasl_plain_password'] = self.sasl_password
+
+            # SSL configuration
+            if self.ssl_cafile:
+                security_config['ssl_cafile'] = self.ssl_cafile
+            if self.ssl_certfile:
+                security_config['ssl_certfile'] = self.ssl_certfile
+            if self.ssl_keyfile:
+                security_config['ssl_keyfile'] = self.ssl_keyfile
 
         try:
             self.producer = KafkaProducer(
@@ -40,7 +68,8 @@ class DetectionKafkaProducer:
                 key_serializer=lambda k: k.encode('utf-8') if k else None,
                 acks='all',
                 retries=3,
-                linger_ms=5
+                linger_ms=5,
+                **security_config
             )
             self.is_running = True
             logger.info(f"Kafka producer started on {self.host}:{self.port}, topic: {self.topic}")

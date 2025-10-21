@@ -11,6 +11,8 @@ import asyncio
 import json
 import sys
 import os
+import hashlib
+import hmac
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.config import *
 import pygame
@@ -167,6 +169,9 @@ class MultiCameraDetector:
                     logger.warning(f"⚠️  Failed to read frame from {zone} camera")
                     continue
 
+                # Data integrity check - compute hash of frame data
+                frame_hash = hashlib.sha256(frame.tobytes()).hexdigest()
+
                 # Run YOLOv8 inference on this camera's frame
                 results = self.model(frame, conf=MODEL_CONFIDENCE, verbose=False)
                 detections = []
@@ -184,20 +189,29 @@ class MultiCameraDetector:
                             object_type = OBJECT_CLASSES[class_id]
                             position = self.calculate_position(bbox, frame.shape[1], frame.shape[0], zone)
 
-                            detection = {
+                            # Create detection with integrity data
+                            detection_data = {
                                 "object": object_type,
                                 "position": position,
                                 "confidence": confidence,
                                 "bbox": bbox,
                                 "class_id": class_id,
                                 "camera_zone": zone,
-                                "timestamp": time.time()
+                                "timestamp": time.time(),
+                                "frame_hash": frame_hash[:16]  # Short hash for integrity
                             }
-                            detections.append(detection)
+
+                            # Add HMAC for detection integrity (using a simple key for demo)
+                            secret_key = os.environ.get('DETECTION_SECRET_KEY', 'default_key')
+                            message = f"{object_type}{confidence}{zone}{time.time()}"
+                            hmac_digest = hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+                            detection_data["integrity_hmac"] = hmac_digest[:16]
+
+                            detections.append(detection_data)
 
                 all_detections.extend(detections)
 
-                # Send detections via Kafka
+                # Send detections via Kafka with integrity checks
                 if detections:
                     self.kafka_producer.send_detections(detections)
 
