@@ -1,0 +1,6 @@
+projectKey=Safedetect
+serverUrl=http://localhost:9000
+serverVersion=25.10.0.114319
+dashboardUrl=http://localhost:9000/dashboard?id=Safedetect
+ceTaskId=55186cf7-d7bf-4249-baac-10ea9e363282
+ceTaskUrl=http://localhost:9000/api/ce/task?id=55186cf7-d7bf-4249-baac-10ea9e363282
