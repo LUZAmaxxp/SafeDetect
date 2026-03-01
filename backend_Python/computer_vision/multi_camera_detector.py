@@ -26,9 +26,18 @@ logger = logging.getLogger(__name__)
 
 
 class MultiCameraDetector:
-    def __init__(self, model_path: str = "yolov8n.pt"):
+    def __init__(self, model_path: str = None):
         """Initialize the multi-camera blind spot detection system"""
+        import torch
+        if model_path is None:
+            model_path = os.environ.get("MODEL_PATH", "yolov8n.pt")
         self.model = YOLO(model_path)
+        # Auto-select device: GPU if available, otherwise CPU
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        # Use smaller inference size on CPU to maintain acceptable FPS
+        default_imgsz = '640' if self.device == 'cuda' else '416'
+        self.imgsz = int(os.environ.get('INFERENCE_SIZE', default_imgsz))
+        logger.info(f"🖥️  Running inference on: {self.device.upper()} | imgsz: {self.imgsz}")
         self.cameras = {}  # Dictionary to store multiple camera feeds
         self.is_running = False
         self.frame_count = 0
@@ -168,18 +177,36 @@ class MultiCameraDetector:
         """Process frames from all active cameras"""
         all_detections = []
 
+        # Deduplicate: read each unique camera source only once and
+        # cache inference results so zones sharing a camera don't pay 3x cost.
+        frame_cache: Dict[int, tuple] = {}  # camera_id -> (frame, results)
+
         for zone, cap in self.cameras.items():
             try:
-                ret, frame = cap.read()
-                if not ret:
-                    logger.warning(f"⚠️  Failed to read frame from {zone} camera")
+                camera_id = CAMERA_CONFIG[zone]['camera_id']
+
+                if camera_id not in frame_cache:
+                    ret, frame = cap.read()
+                    if not ret:
+                        logger.warning(f"⚠️  Failed to read frame from {zone} camera")
+                        frame_cache[camera_id] = None
+                        continue
+                    # Cheap integrity check: sample every 8th pixel instead of full SHA-256
+                    frame_hash = hashlib.md5(frame[::8, ::8].tobytes()).hexdigest()
+                    # Run YOLO inference once per unique frame
+                    results = self.model(
+                        frame,
+                        conf=MODEL_CONFIDENCE,
+                        verbose=False,
+                        imgsz=self.imgsz,
+                        device=self.device,
+                    )
+                    frame_cache[camera_id] = (frame, frame_hash, results)
+
+                cached = frame_cache.get(camera_id)
+                if cached is None:
                     continue
-
-                # Data integrity check - compute hash of frame data
-                frame_hash = hashlib.sha256(frame.tobytes()).hexdigest()
-
-                # Run YOLOv8 inference on this camera's frame
-                results = self.model(frame, conf=MODEL_CONFIDENCE, verbose=False)
+                frame, frame_hash, results = cached
                 detections = []
 
                 # Process results for this camera

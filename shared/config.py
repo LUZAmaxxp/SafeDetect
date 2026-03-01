@@ -55,22 +55,35 @@ CAMERA_HEIGHT = int(os.environ.get("CAMERA_HEIGHT", 480))
 FPS_TARGET = int(os.environ.get("FPS_TARGET", 15))
 
 # Multi-Camera Configuration
-# Each camera is assigned to a specific blind spot zone
+# Each camera is assigned to a specific blind spot zone.
+# Camera source can be:
+#   - An integer (webcam index, e.g. 0) — set LEFT_CAMERA_ID=0
+#   - An RTSP URL (e.g. rtsp://192.168.1.10:554/stream) — set LEFT_CAMERA_SRC=rtsp://...
+#   - A video file path (e.g. /app/videos/left.mp4) — set LEFT_CAMERA_SRC=/path/to/file
+# LEFT_CAMERA_SRC / RIGHT_CAMERA_SRC / REAR_CAMERA_SRC take priority over *_CAMERA_ID.
+def _parse_camera_source(src_env: str, id_env: str, default_id: int):
+    """Return an RTSP/file string or an integer camera index."""
+    src = os.environ.get(src_env)
+    if src:
+        # If it looks like a number, treat it as an index anyway
+        return int(src) if src.isdigit() else src
+    return int(os.environ.get(id_env, default_id))
+
 CAMERA_CONFIG = {
     "left": {
-        "camera_id": int(os.environ.get("LEFT_CAMERA_ID", 0)),
+        "camera_id": _parse_camera_source("LEFT_CAMERA_SRC", "LEFT_CAMERA_ID", 0),
         "zone": "left",
         "name": "Left Side Camera",
         "description": "Monitors left side blind spot"
     },
     "right": {
-        "camera_id": int(os.environ.get("RIGHT_CAMERA_ID", 1)),
+        "camera_id": _parse_camera_source("RIGHT_CAMERA_SRC", "RIGHT_CAMERA_ID", 1),
         "zone": "right",
         "name": "Right Side Camera",
         "description": "Monitors right side blind spot"
     },
     "rear": {
-        "camera_id": int(os.environ.get("REAR_CAMERA_ID", 2)),
+        "camera_id": _parse_camera_source("REAR_CAMERA_SRC", "REAR_CAMERA_ID", 2),
         "zone": "rear",
         "name": "Rear Camera",
         "description": "Monitors rear blind spot"

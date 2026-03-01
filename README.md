@@ -78,7 +78,7 @@ node server.js
 ```bash
 cd backend
 source venv/bin/activate
-python computer_vision/multi_camera_detector.py
+KAFKA_HOST=localhost KAFKA_PORT=9092 python -m computer_vision.multi_camera_detector
 ```
 
 **Terminal 3 - React App:**
