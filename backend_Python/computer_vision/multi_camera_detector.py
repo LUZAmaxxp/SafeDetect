@@ -18,7 +18,7 @@ from shared.config import *
 import pygame
 from typing import List, Dict, Tuple, Optional
 import logging
-from kafka_producer import DetectionKafkaProducer
+from .kafka_producer import DetectionKafkaProducer
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -36,8 +36,14 @@ class MultiCameraDetector:
         self.last_time = time.time()
 
         # Initialize pygame for audio alerts
-        pygame.mixer.init()
-        self.alert_sound = self._create_beep_sound()
+        self.audio_enabled = False
+        try:
+            pygame.mixer.init()
+            self.alert_sound = self._create_beep_sound()
+            self.audio_enabled = True
+        except Exception as e:
+            logger.warning(f"Audio device not available, alerts will be silent: {e}")
+            self.alert_sound = None
 
         # Detection history for smoothing
         self.detection_history = []
