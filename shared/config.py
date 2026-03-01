@@ -2,17 +2,40 @@
 Shared configuration for SafeDetect Blind Spot Detection System
 """
 import os
+import logging
 
-# Validate required environment variables
+logger = logging.getLogger(__name__)
+
+
 def validate_env_vars():
-    """Validate that all required environment variables are set"""
+    """
+    Validate that all required environment variables are set.
+
+    Call this explicitly from the application entry point — NOT at import time —
+    so that tests, scripts, and tooling can import this module without a live
+    Kafka broker configured.
+
+    Example (in multi_camera_detector.py)::
+
+        from shared.config import validate_env_vars
+        validate_env_vars()
+    """
     required_vars = ['KAFKA_HOST', 'KAFKA_PORT']
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     if missing_vars:
-        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}. "
+            "Copy .env.example to .env and fill in the values."
+        )
 
-# Call validation on import
-validate_env_vars()
+    # Warn about insecure default secret key
+    if os.environ.get('DETECTION_SECRET_KEY', 'change_me_in_production') in (
+        'change_me_in_production', 'default_key'
+    ):
+        logger.warning(
+            "DETECTION_SECRET_KEY is set to an insecure default. "
+            "Set a strong random key in your .env file before deploying."
+        )
 
 # WebSocket Configuration
 WEBSOCKET_HOST = os.environ.get("WEBSOCKET_HOST", "localhost")

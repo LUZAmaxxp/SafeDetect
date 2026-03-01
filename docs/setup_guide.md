@@ -58,7 +58,7 @@ Kafka handles communication between the Python backend and Node.js server.
 
 ```bash
 # Navigate to backend directory
-cd backend
+cd backend_Python
 
 # Start Kafka and Zookeeper using Docker
 docker-compose up -d
@@ -84,7 +84,7 @@ docker-compose exec kafka kafka-topics --create --topic detections --bootstrap-s
 
 ```bash
 # Navigate to backend directory
-cd backend
+cd backend_Python
 
 # Create virtual environment
 python -m venv venv
@@ -107,7 +107,7 @@ pip install -r requirements.txt
 
 ```bash
 # Navigate to web backend directory
-cd web/backend
+cd Dashboard_Service/backend_Kafka
 
 # Install Node.js dependencies
 npm install
@@ -122,7 +122,7 @@ npm install
 
 ```bash
 # Navigate to web directory
-cd web
+cd Dashboard_Service
 
 # Install React dependencies
 npm install
@@ -167,13 +167,13 @@ Open **4 terminals** and run each component:
 
 **Terminal 1 - Kafka** (Already running from setup)
 ```bash
-cd backend
+cd backend_Python
 docker-compose logs -f  # Monitor Kafka logs
 ```
 
 **Terminal 2 - Node.js Backend**
 ```bash
-cd web/backend
+cd Dashboard_Service/backend_Kafka
 node server.js
 ```
 - Starts WebSocket server on `ws://localhost:8081`
@@ -182,7 +182,7 @@ node server.js
 
 **Terminal 3 - Python Detection Backend**
 ```bash
-cd backend
+cd backend_Python
 source venv/bin/activate
 python computer_vision/multi_camera_detector.py
 ```
@@ -193,7 +193,7 @@ python computer_vision/multi_camera_detector.py
 
 **Terminal 4 - React Frontend**
 ```bash
-cd web
+cd Dashboard_Service
 npm start
 ```
 - Opens browser at `http://localhost:3000`
@@ -202,7 +202,7 @@ npm start
 
 ### Testing Without Cameras
 
-If you don't have cameras, modify `backend/computer_vision/multi_camera_detector.py`:
+If you don't have cameras, modify `backend_Python/computer_vision/multi_camera_detector.py`:
 
 ```python
 # Replace camera initialization with video files
@@ -213,14 +213,14 @@ self.cap = cv2.VideoCapture('path/to/test_video.mp4')
 
 ### 1. Check Kafka Topic
 ```bash
-cd backend
+cd backend_Python
 docker-compose exec kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
 Should show: `detections`
 
 ### 2. Monitor Kafka Messages
 ```bash
-cd backend
+cd backend_Python
 docker-compose exec kafka kafka-console-consumer --topic detections --bootstrap-server localhost:9092 --from-beginning
 ```
 You should see JSON messages when detections occur.

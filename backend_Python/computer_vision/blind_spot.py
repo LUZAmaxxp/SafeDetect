@@ -1,13 +1,29 @@
 """
-Main Blind Spot Detection System
-Integrates YOLOv8 detection with WebSocket streaming
+Main Blind Spot Detection System — LEGACY / ARCHIVED
+=====================================================
+This module is **no longer the active entry point**. The current entry point
+is ``computer_vision.multi_camera_detector``.
+
+``blind_spot.py`` previously wired a single-camera detector to a legacy
+WebSocket server (``archive/websocket_server.py``). That WebSocket path has
+been superseded by the Kafka → ws-bridge → React pipeline.
+
+The file is kept here for historical reference. Do not import it in new code.
 """
 
 import asyncio
 import cv2
 import numpy as np
-from multi_camera_detector import MultiCameraDetector
-from websocket_server import DetectionWebSocketServer
+from .multi_camera_detector import MultiCameraDetector
+
+# The legacy WebSocket server has been moved to archive/websocket_server.py.
+# Import is guarded so that merely importing this module does not crash the
+# package when the archive module is not on sys.path.
+try:
+    from archive.websocket_server import DetectionWebSocketServer  # type: ignore
+except ImportError:
+    DetectionWebSocketServer = None  # type: ignore
+
 from shared.config import *
 import logging
 import signal

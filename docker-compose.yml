@@ -1,0 +1,121 @@
+# =============================================================================
+# SafeDetect — Single-command full-stack Docker Compose
+# Usage:
+#   cp .env.example .env      # first time only
+#   docker-compose up --build
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Zookeeper — Kafka coordination service
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: safedetect-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  # ---------------------------------------------------------------------------
+  # Kafka — Message broker between CV service and WS bridge
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: safedetect-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT      → used by Docker-internal services (cv-service, ws-bridge)
+      # PLAINTEXT_HOST → used by host-machine clients during native dev
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # CV Service — Python YOLOv8 multi-camera detector
+  # ---------------------------------------------------------------------------
+  cv-service:
+    build:
+      context: ./backend_Python
+      dockerfile: Dockerfile
+    container_name: safedetect-cv
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      # Mount shared config so edits are reflected without rebuilding
+      - ./shared:/app/backend/shared
+    devices:
+      # Expose all three camera devices — comment out any that don't exist
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app/backend
+      # Override KAFKA_HOST so the service uses the Docker-internal broker
+      KAFKA_HOST: kafka
+      KAFKA_PORT: "9092"
+    # Uncomment to enable NVIDIA GPU passthrough (requires nvidia-container-toolkit)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ---------------------------------------------------------------------------
+  # WS Bridge — Node.js Kafka consumer → WebSocket broadcast
+  # ---------------------------------------------------------------------------
+  ws-bridge:
+    build:
+      context: ./Dashboard_Service/backend_Kafka
+      dockerfile: Dockerfile
+    container_name: safedetect-ws-bridge
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+    environment:
+      KAFKA_BROKER: kafka:9092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-detections}
+      PORT: "8082"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard — React app served via nginx (production build)
+  # ---------------------------------------------------------------------------
+  dashboard:
+    build:
+      context: ./Dashboard_Service
+      dockerfile: Dockerfile
+    container_name: safedetect-dashboard
+    restart: unless-stopped
+    depends_on:
+      - ws-bridge
+    ports:
+      - "80:80"

@@ -49,7 +49,7 @@ OBJECT_COLORS = {
 KAFKA_TOPIC = 'detections'  # Or custom topic name
 ```
 
-2. **Update Detection Script** (`backend/computer_vision/multi_camera_detector.py`):
+2. **Update Detection Script** (`backend_Python/computer_vision/multi_camera_detector.py`):
 
 ```python
 # In the detection loop
@@ -92,7 +92,7 @@ BLIND_SPOT_ZONES = {
 For multi-camera setups:
 
 ```python
-# backend/computer_vision/multi_camera_detection.py
+# backend_Python/computer_vision/multi_camera_detection.py
 class MultiCameraDetector:
     def __init__(self, camera_ids=[0, 1, 2]):
         self.detectors = []
@@ -113,7 +113,7 @@ class MultiCameraDetector:
 
 ### Custom Alert System
 
-Extend the alert system in `web/src/App.js`:
+Extend the alert system in `Dashboard_Service/src/App.js`:
 
 ```javascript
 const triggerCustomAlert = async (detection) => {
@@ -139,7 +139,7 @@ const triggerCustomAlert = async (detection) => {
 Replace the basic truck model with custom 3D models:
 
 ```javascript
-// web/src/components/CustomTruck.js
+// Dashboard_Service/src/components/CustomTruck.js
 import { useGLTF } from '@react-three/drei';
 
 export default function CustomTruck() {
@@ -158,7 +158,7 @@ export default function CustomTruck() {
 
 ### WebSocket Message Handling
 
-Add custom message types in `web/src/services/WebSocketService.js`:
+Add custom message types in `Dashboard_Service/src/services/WebSocketService.js`:
 
 ```javascript
 // Handle messages from Node.js backend (via WebSocket)
@@ -183,7 +183,7 @@ handleMessage(data) {
 
 ### Node.js Backend Customization
 
-Extend the Node.js backend (`web/backend/server.js`) for custom processing:
+Extend the Node.js backend (`Dashboard_Service/backend_Kafka/server.js`) for custom processing:
 
 ```javascript
 // Add custom message processing
@@ -209,7 +209,7 @@ function processDetectionMessage(message) {
 
 For deployment across multiple devices:
 
-1. **Configure Kafka** (in `backend/docker-compose.yml`):
+1. **Configure Kafka** (in `backend_Python/docker-compose.yml`):
 ```yaml
 kafka:
   ports:
@@ -218,7 +218,7 @@ kafka:
     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://YOUR_IP:9092
 ```
 
-2. **Configure Node.js Backend** (`web/backend/kafka_config.js`):
+2. **Configure Node.js Backend** (`Dashboard_Service/backend_Kafka/kafka_config.js`):
 ```javascript
 const kafkaConfig = {
     clientId: 'safedetect-node',
@@ -227,7 +227,7 @@ const kafkaConfig = {
 };
 ```
 
-3. **Update React App** (`web/src/services/WebSocketService.js`):
+3. **Update React App** (`Dashboard_Service/src/services/WebSocketService.js`):
 ```javascript
 // Use actual IP address instead of localhost
 const wsService = new WebSocketService('ws://192.168.1.100:8081');
@@ -247,7 +247,7 @@ kafka:
 
 2. **Node.js Backend**:
 ```javascript
-// web/backend/kafka_config.js
+// Dashboard_Service/backend_Kafka/kafka_config.js
 const kafkaConfig = {
     clientId: 'safedetect-node',
     brokers: ['your-kafka-endpoint:9092'],
@@ -280,7 +280,7 @@ sudo raspi-config
 # Navigate to: Interfacing Options > Camera > Enable
 
 # Setup Python environment
-cd backend
+cd backend_Python
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -294,7 +294,7 @@ python -c "import cv2; cap = cv2.VideoCapture(0); print('Camera working:', cap.i
 Connect external display for driver monitoring:
 
 ```python
-# backend/computer_vision/display_output.py
+# backend_Python/computer_vision/display_output.py
 class DisplayOutput:
     def __init__(self):
         self.display = cv2.namedWindow("SafeDetect", cv2.WINDOW_NORMAL)
@@ -312,7 +312,7 @@ class DisplayOutput:
 For hardware alerts (LEDs, buzzers):
 
 ```python
-# backend/computer_vision/gpio_alerts.py
+# backend_Python/computer_vision/gpio_alerts.py
 import RPi.GPIO as GPIO
 
 class GPIOAlerts:
@@ -341,7 +341,7 @@ class GPIOAlerts:
 Add detection data storage:
 
 ```python
-# backend/computer_vision/data_storage.py
+# backend_Python/computer_vision/data_storage.py
 import sqlite3
 from datetime import datetime
 
@@ -386,7 +386,7 @@ class DetectionStorage:
 Generate detection analytics:
 
 ```python
-# backend/computer_vision/analytics.py
+# backend_Python/computer_vision/analytics.py
 class DetectionAnalytics:
     def __init__(self):
         self.detection_counts = {}
@@ -418,7 +418,7 @@ class DetectionAnalytics:
 Add WebSocket authentication:
 
 ```python
-# backend/computer_vision/auth_server.py
+# backend_Python/computer_vision/auth_server.py
 class AuthenticatedWebSocketServer:
     def __init__(self):
         self.auth_tokens = {}  # Store valid tokens
@@ -457,7 +457,7 @@ SSL_KEY_FILE = "/path/to/key.pem"
 ### Unit Tests
 
 ```python
-# backend/tests/test_detection.py
+# backend_Python/tests/test_detection.py
 import unittest
 from backend.computer_vision.detection import BlindSpotDetector
 
@@ -482,7 +482,7 @@ class TestBlindSpotDetector(unittest.TestCase):
 ### Integration Tests
 
 ```python
-# backend/tests/test_integration.py
+# backend_Python/tests/test_integration.py
 import asyncio
 import unittest
 from backend.computer_vision.blind_spot import BlindSpotSystem
@@ -513,7 +513,7 @@ class TestSystemIntegration(unittest.TestCase):
 Add performance monitoring:
 
 ```python
-# backend/computer_vision/performance_monitor.py
+# backend_Python/computer_vision/performance_monitor.py
 class PerformanceMonitor:
     def __init__(self):
         self.metrics = {
@@ -543,7 +543,7 @@ class PerformanceMonitor:
 Performance optimization techniques:
 
 ```python
-# backend/computer_vision/optimized_detection.py
+# backend_Python/computer_vision/optimized_detection.py
 class OptimizedDetector:
     def __init__(self):
         # Use smaller model for faster inference
@@ -582,7 +582,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
-COPY backend/requirements.txt .
+COPY backend_Python/requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy application code
@@ -593,7 +593,7 @@ COPY shared/ ./shared/
 EXPOSE 8765
 
 # Run application
-CMD ["python", "backend/computer_vision/blind_spot.py"]
+CMD ["python", "backend_Python/computer_vision/blind_spot.py"]
 ```
 
 ### Kubernetes Integration

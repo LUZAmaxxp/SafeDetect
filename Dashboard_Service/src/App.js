@@ -12,10 +12,18 @@ export default function App() {
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const [alertActive, setAlertActive] = useState(false);
   const [fps, setFps] = useState(0);
-  const [serverIP, setServerIP] = useState('localhost');
+  // Default to the current browser host so the app works out-of-the-box in
+  // Docker (served from the same machine) and in local dev (localhost).
+  const [serverIP, setServerIP] = useState(
+    typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'
+  );
+  const [showSettings, setShowSettings] = useState(false);
+  const [pendingIP, setPendingIP] = useState('');
   const [cameraView, setCameraView] = useState('default');
   const wsService = useRef(null);
   const cameraRef = useRef(null);
+  // Rolling window of message timestamps for real FPS calculation
+  const fpsTimestamps = useRef([]);
 
   useEffect(() => {
     // Initialize WebSocket service
@@ -33,17 +41,21 @@ export default function App() {
     });
 
     wsService.current.on('detections', (data) => {
-      setDetections(data.detections || []);
-      setFps(Math.floor(Math.random() * 10) + 25);
+      const incoming = data.detections || [];
+      setDetections(incoming);
 
-      // Check for blind spot detections and trigger alerts
-      const blindSpotObjects = data.detections?.filter(detection => {
-        // Simple blind spot detection based on position
-        return detection.position.x < -1 || detection.position.x > 1 ||
-               detection.position.y < -2 || detection.position.y > 0;
-      });
+      // --- Real FPS: count messages received in the last second ---
+      const now = Date.now();
+      fpsTimestamps.current.push(now);
+      fpsTimestamps.current = fpsTimestamps.current.filter(t => now - t <= 1000);
+      setFps(fpsTimestamps.current.length);
 
-      if (blindSpotObjects && blindSpotObjects.length > 0 && !alertActive) {
+      // --- Alert logic: use camera_zone sent by the Python backend ---
+      // The Kafka message includes a `camera_zone` field ('left'|'right'|'rear').
+      const blindSpotObjects = incoming.filter(
+        d => d.camera_zone && ['left', 'right', 'rear'].includes(d.camera_zone)
+      );
+      if (blindSpotObjects.length > 0 && !alertActive) {
         triggerAlert();
       }
     });
@@ -118,22 +130,36 @@ export default function App() {
   const reconnect = () => {
     if (wsService.current) {
       wsService.current.disconnect();
-      wsService.current = new WebSocketService(`ws://${serverIP}:8081`);
-      wsService.current.on('connected', () => {
-        setIsConnected(true);
-        setConnectionStatus('Connected');
-       
-      });
-      wsService.current.on('disconnected', () => {
-        setIsConnected(false);
-        setConnectionStatus('Disconnected');
-      });
-      wsService.current.on('detections', (data) => {
-        setDetections(data.detections || []);
-      });
-      wsService.current.connect();
     }
-    
+    wsService.current = new WebSocketService(`ws://${serverIP}:8081`);
+    wsService.current.on('connected', () => {
+      setIsConnected(true);
+      setConnectionStatus('Connected');
+    });
+    wsService.current.on('disconnected', () => {
+      setIsConnected(false);
+      setConnectionStatus('Disconnected');
+    });
+    wsService.current.on('detections', (data) => {
+      const incoming = data.detections || [];
+      setDetections(incoming);
+
+      const now = Date.now();
+      fpsTimestamps.current.push(now);
+      fpsTimestamps.current = fpsTimestamps.current.filter(t => now - t <= 1000);
+      setFps(fpsTimestamps.current.length);
+
+      const blindSpotObjects = incoming.filter(
+        d => d.camera_zone && ['left', 'right', 'rear'].includes(d.camera_zone)
+      );
+      if (blindSpotObjects.length > 0 && !alertActive) {
+        triggerAlert();
+      }
+    });
+    wsService.current.on('error', (error) => {
+      setConnectionStatus(`Error: ${error.message}`);
+    });
+    wsService.current.connect();
   };
 
   const switchToDefaultView = () => setCameraView('default');
@@ -188,8 +214,48 @@ export default function App() {
           >
             🔄 Reconnect
           </button>
+
+          <button
+            onClick={() => { setPendingIP(serverIP); setShowSettings(s => !s); }}
+            className="reconnect-button"
+            title="Configure server IP"
+          >
+            ⚙️ Settings
+          </button>
         </div>
       </div>
+
+      {/* Settings Panel — configure WebSocket server IP */}
+      {showSettings && (
+        <div className="settings-panel">
+          <span className="settings-label">WebSocket Server IP</span>
+          <input
+            className="settings-input"
+            type="text"
+            value={pendingIP}
+            placeholder="e.g. 192.168.1.50 or localhost"
+            onChange={e => setPendingIP(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                setServerIP(pendingIP.trim());
+                setShowSettings(false);
+              }
+            }}
+          />
+          <button
+            className="reconnect-button"
+            onClick={() => { setServerIP(pendingIP.trim()); setShowSettings(false); }}
+          >
+            Apply &amp; Reconnect
+          </button>
+          <button
+            className="reconnect-button"
+            onClick={() => setShowSettings(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Status Bar */}
       <div className="connection-container">
@@ -292,8 +358,8 @@ export default function App() {
         ) : (
           <div className="detections-list">
             {detections.map((detection, index) => {
-              const isInBlindSpot = detection.position.x < -1 || detection.position.x > 1 ||
-                                   detection.position.y < -2 || detection.position.y > 0;
+              const isInBlindSpot = detection.camera_zone &&
+                ['left', 'right', 'rear'].includes(detection.camera_zone);
 
               return (
                 <div key={index} className="detection-card">
@@ -311,8 +377,13 @@ export default function App() {
 
                   <div className="detection-details">
                     <div className="detail-text">
-                      📍 Position: X: {detection.position.x.toFixed(2)}, Y: {detection.position.y.toFixed(2)}
+                      📍 Position: X: {detection.position?.x?.toFixed(2) ?? 'N/A'}, Y: {detection.position?.y?.toFixed(2) ?? 'N/A'}
                     </div>
+                    {detection.camera_zone && (
+                      <div className="detail-text">
+                        📷 Zone: {detection.camera_zone}
+                      </div>
+                    )}
                     <div className="detail-text">
                       ⏰ Detected: {new Date(detection.timestamp * 1000).toLocaleTimeString()}
                     </div>

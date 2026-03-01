@@ -42,7 +42,7 @@ cd SafeDetect
 The backend includes a `docker-compose.yml` for Zookeeper + Kafka.
 
 ```
-cd backend
+cd backend_Python
 docker-compose up -d
 ```
 
@@ -59,7 +59,7 @@ docker-compose exec kafka kafka-topics --create --topic detections --bootstrap-s
 ### 3. Setup Python Backend
 Create virtual environment:
 ```
-cd backend
+cd backend_Python
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
@@ -71,13 +71,13 @@ pip install -r requirements.txt
 
 ### 4. Setup Node.js Backend (for web/)
 ```
-cd web/backend
+cd Dashboard_Service/backend_Kafka
 npm install
 ```
 
 ### 5. Setup React Frontend
 ```
-cd web
+cd Dashboard_Service
 npm install
 ```
 
@@ -89,7 +89,7 @@ Open multiple terminals:
 
 **Terminal 2 - Node.js Backend**:
 ```
-cd web/backend
+cd Dashboard_Service/backend_Kafka
 node server.js
 ```
 - Starts WebSocket server on ws://localhost:8081
@@ -97,7 +97,7 @@ node server.js
 
 **Terminal 3 - Python Detection**:
 ```
-cd backend
+cd backend_Python
 source venv/bin/activate
 python computer_vision/KAFKA_HOST=localhost KAFKA_PORT=9092 python multi_camera_detector.py
 ```
@@ -107,7 +107,7 @@ python computer_vision/KAFKA_HOST=localhost KAFKA_PORT=9092 python multi_camera_
 
 **Terminal 4 - React Frontend**:
 ```
-cd web
+cd Dashboard_Service
 npm start
 ```
 - Opens http://localhost:3000
@@ -150,17 +150,17 @@ npm start
 
 ## Files Structure
 
-- `backend/computer_vision/multi_camera_detector.py`: Main multi-camera logic.
-- `backend/computer_vision/kafka_producer.py`: Kafka producer class.
-- `backend/computer_vision/detection.py`: Single-camera fallback.
-- `backend/computer_vision/archive/`: Legacy WebSocket files.
-- `web/backend/server.js`: Kafka consumer + WebSocket server.
-- `web/src/services/WebSocketService.js`: Frontend WebSocket client.
+- `backend_Python/computer_vision/multi_camera_detector.py`: Main multi-camera logic.
+- `backend_Python/computer_vision/kafka_producer.py`: Kafka producer class.
+- `backend_Python/computer_vision/detection.py`: Single-camera fallback.
+- `backend_Python/computer_vision/archive/`: Legacy WebSocket files.
+- `Dashboard_Service/backend_Kafka/server.js`: Kafka consumer + WebSocket server.
+- `Dashboard_Service/src/services/WebSocketService.js`: Frontend WebSocket client.
 
 ## Testing
 
-- Run `python backend/computer_vision/test_multi_camera.py` to check camera connections.
+- Run `python backend_Python/computer_vision/test_multi_camera.py` to check camera connections.
 - Use dummy objects in view for detection testing.
 - Monitor Kafka: `docker exec -it kafka kafka-console-consumer --topic detections --bootstrap-server localhost:9092 --from-beginning`.
 
-For more details, see `backend/computer_vision/README_MULTI_CAMERA.md` and `web/README.md`.
+For more details, see `backend_Python/computer_vision/README_MULTI_CAMERA.md` and `Dashboard_Service/README.md`.

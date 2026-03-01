@@ -14,7 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from shared.config import *
 import pygame
 from typing import List, Dict, Tuple
-from kafka_producer import DetectionKafkaProducer
+from .kafka_producer import DetectionKafkaProducer
 
 
 class BlindSpotDetector:
@@ -63,7 +63,7 @@ class BlindSpotDetector:
 
     def calculate_position(self, bbox: List[float], frame_width: int, frame_height: int) -> Dict[str, float]:
         """Calculate relative position of detected object"""
-        x1, y1, x2, y2, z = bbox
+        x1, y1, x2, y2 = bbox
         x_center = (x1 + x2) / 2 / frame_width
         y_center = (y1 + y2) / 2 / frame_height
         z = (x2 - x1) / frame_width  # Relative size as a proxy for distance

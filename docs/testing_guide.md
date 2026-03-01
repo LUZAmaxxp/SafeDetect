@@ -56,7 +56,7 @@ This guide covers testing strategies for all components of the SafeDetect system
 #### Detection Engine Tests
 
 ```python
-# backend/tests/test_detection.py
+# backend_Python/tests/test_detection.py
 import unittest
 import numpy as np
 from backend.computer_vision.detection import BlindSpotDetector
@@ -106,7 +106,7 @@ class TestBlindSpotDetector(unittest.TestCase):
 #### Kafka Producer Tests
 
 ```python
-# backend/tests/test_kafka_producer.py
+# backend_Python/tests/test_kafka_producer.py
 import unittest
 from unittest.mock import Mock, patch
 from backend.computer_vision.kafka_producer import DetectionKafkaProducer
@@ -152,7 +152,7 @@ class TestKafkaProducer(unittest.TestCase):
 #### Node.js Backend Tests
 
 ```javascript
-// web/backend/tests/server.test.js
+// Dashboard_Service/backend_Kafka_Python/tests/server.test.js
 const WebSocket = require('ws');
 const { Kafka } = require('kafkajs');
 
@@ -239,7 +239,7 @@ describe('App Component', () => {
 #### Backend Integration Test
 
 ```python
-# backend/tests/test_integration.py
+# backend_Python/tests/test_integration.py
 import asyncio
 import unittest
 from unittest.mock import patch
@@ -294,7 +294,7 @@ class TestBackendIntegration(unittest.TestCase):
 #### Kafka-Node.js Integration Test
 
 ```python
-# backend/tests/test_kafka_node_integration.py
+# backend_Python/tests/test_kafka_node_integration.py
 import asyncio
 import unittest
 from unittest.mock import patch, AsyncMock
@@ -317,7 +317,7 @@ class TestKafkaNodeIntegration(unittest.TestCase):
         node_process = None
         try:
             # Start Node.js server in background (for real testing)
-            # node_process = subprocess.Popen(['node', 'web/backend/server.js'])
+            # node_process = subprocess.Popen(['node', 'Dashboard_Service/backend_Kafka/server.js'])
 
             # Send test detection to Kafka
             detection_data = {
@@ -376,7 +376,7 @@ class TestKafkaNodeIntegration(unittest.TestCase):
 #### Full System Test
 
 ```python
-# backend/tests/test_end_to_end.py
+# backend_Python/tests/test_end_to_end.py
 import asyncio
 import time
 import subprocess
@@ -398,7 +398,7 @@ class TestEndToEnd(unittest.TestCase):
 
             # Start Node.js backend
             self.node_process = subprocess.Popen(['node', 'server.js'],
-                                               cwd='web/backend')
+                                               cwd='Dashboard_Service/backend_Kafka')
 
             # Give services time to start
             await asyncio.sleep(10)
@@ -497,7 +497,7 @@ class TestEndToEnd(unittest.TestCase):
 ### FPS Testing
 
 ```python
-# backend/tests/test_performance.py
+# backend_Python/tests/test_performance.py
 import time
 import psutil
 import asyncio
@@ -605,7 +605,7 @@ class TestPerformance(unittest.TestCase):
 ### Latency Testing
 
 ```python
-# backend/tests/test_latency.py
+# backend_Python/tests/test_latency.py
 import time
 import asyncio
 import websockets
@@ -730,7 +730,7 @@ class TestLatency(unittest.TestCase):
 ### Camera Testing
 
 ```python
-# backend/tests/test_hardware.py
+# backend_Python/tests/test_hardware.py
 import cv2
 import unittest
 
@@ -803,7 +803,7 @@ describe('Browser Compatibility', () => {
 ### Alert System Testing
 
 ```python
-# backend/tests/test_safety.py
+# backend_Python/tests/test_safety.py
 import unittest
 from backend.computer_vision.detection import BlindSpotDetector
 
@@ -851,7 +851,7 @@ class TestSafetyFeatures(unittest.TestCase):
 ### Usability Tests
 
 ```python
-# backend/tests/test_usability.py
+# backend_Python/tests/test_usability.py
 import time
 import asyncio
 import unittest
@@ -927,7 +927,7 @@ class TestUsability(unittest.TestCase):
 ### Real-World Scenario Tests
 
 ```python
-# backend/tests/test_real_world.py
+# backend_Python/tests/test_real_world.py
 import asyncio
 import unittest
 from backend.computer_vision.multi_camera_detector import MultiCameraDetector
@@ -1024,7 +1024,7 @@ class TestRealWorldScenarios(unittest.TestCase):
 
 ```bash
 # Navigate to backend directory
-cd backend
+cd backend_Python
 
 # Run all tests
 python -m pytest tests/
@@ -1042,8 +1042,8 @@ python -m pytest tests/test_performance.py -v
 ### Node.js Backend Tests
 
 ```bash
-# Navigate to web/backend directory
-cd web/backend
+# Navigate to Dashboard_Service/backend_Kafka directory
+cd Dashboard_Service/backend_Kafka
 
 # Install dependencies
 npm install
@@ -1062,7 +1062,7 @@ npx jest server.test.js
 
 ```bash
 # Navigate to web directory
-cd web
+cd Dashboard_Service
 
 # Run tests
 npm test

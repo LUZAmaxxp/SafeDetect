@@ -358,4 +358,5 @@ async def test_multi_camera_system():
 
 
 if __name__ == "__main__":
+    validate_env_vars()
     asyncio.run(test_multi_camera_system())

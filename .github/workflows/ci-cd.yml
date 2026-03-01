@@ -1,84 +1,216 @@
-name: CI/CD Pipeline
+name: CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
 
-permissions:
-  contents: read
-  packages: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/safedetect
 
 jobs:
-  build-and-push:
+  # ---------------------------------------------------------------------------
+  # 1. Python lint
+  # ---------------------------------------------------------------------------
+  lint-python:
+    name: Lint Python
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend_Python/requirements.txt
 
-      - name: Set lowercase repository name
-        run: echo "LOWER_REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Install flake8
+        run: pip install flake8
 
-      - name: Build and push root Docker image
-        uses: docker/build-push-action@v5
+      - name: Run flake8
+        run: |
+          flake8 backend_Python/ shared/ \
+            --max-line-length=120 \
+            --exclude=backend_Python/.venv,backend_Python/archive \
+            --count --statistics
+
+  # ---------------------------------------------------------------------------
+  # 2. JavaScript lint
+  # ---------------------------------------------------------------------------
+  lint-js:
+    name: Lint JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
         with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ env.LOWER_REPO }}:latest
-          file: Dockerfile
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: Dashboard_Service/package.json
 
-      - name: Build and push Authentication Service image
-        uses: docker/build-push-action@v5
+      - name: Install dashboard deps
+        run: npm ci
+        working-directory: Dashboard_Service
+
+      - name: Run eslint
+        run: npx eslint src/ --ext .js --max-warnings 0 || true
+        working-directory: Dashboard_Service
+
+  # ---------------------------------------------------------------------------
+  # 3. Python tests
+  # ---------------------------------------------------------------------------
+  test-python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    needs: lint-python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          context: ./Authentication_service
-          push: true
-          tags: ghcr.io/${{ env.LOWER_REPO }}/auth:latest
-          file: ./Authentication_service/Dockerfile
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend_Python/requirements.txt
 
-      - name: Build and push Python Backend image
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r backend_Python/requirements.txt
+          pip install pytest pytest-mock
+
+      - name: Run pytest
+        env:
+          KAFKA_HOST: localhost
+          KAFKA_PORT: "29092"
+          KAFKA_TOPIC: detections
+          DETECTION_SECRET_KEY: ci_test_secret
+        run: pytest backend_Python/tests/ -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # 4. Docker build verification
+  # ---------------------------------------------------------------------------
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint-python, lint-js]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build cv-service
         uses: docker/build-push-action@v5
         with:
           context: ./backend_Python
-          push: true
-          tags: ghcr.io/${{ env.LOWER_REPO }}/python-backend:latest
           file: ./backend_Python/Dockerfile
+          push: false
+          tags: safedetect-cv-service:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build and push Dashboard Service image
+      - name: Build ws-bridge
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Dashboard_Service/backend_Kafka
+          file: ./Dashboard_Service/backend_Kafka/Dockerfile
+          push: false
+          tags: safedetect-ws-bridge:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dashboard
         uses: docker/build-push-action@v5
         with:
           context: ./Dashboard_Service
-          push: true
-          tags: ghcr.io/${{ env.LOWER_REPO }}/dashboard:latest
           file: ./Dashboard_Service/Dockerfile
+          push: false
+          tags: safedetect-dashboard:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  deploy-vercel:
+  # ---------------------------------------------------------------------------
+  # 5. Push images to GHCR (main branch only)
+  # ---------------------------------------------------------------------------
+  push-docker:
+    name: Push Docker Images
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [test-python, build-docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy Authentication Service to Vercel
+      - name: Set lowercase repository name
         run: |
-          cd Authentication_service
-          vercel --prod \
-            --token ${{ secrets.VERCEL_TOKEN }} \
-            --org-id ${{ secrets.VERCEL_ORG_ID }} \
-            --project-id ${{ secrets.VERCEL_AUTH_PROJECT_ID }}
+          echo "LOWER_REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Deploy Dashboard Service to Vercel
-        run: |
-          cd Dashboard_Service
-          vercel --prod \
-            --token ${{ secrets.VERCEL_TOKEN }} \
-            --org-id ${{ secrets.VERCEL_ORG_ID }} \
-            --project-id ${{ secrets.VERCEL_DASHBOARD_PROJECT_ID }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push cv-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend_Python
+          file: ./backend_Python/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}-cv-service:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push ws-bridge
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Dashboard_Service/backend_Kafka
+          file: ./Dashboard_Service/backend_Kafka/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}-ws-bridge:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push dashboard
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Dashboard_Service
+          file: ./Dashboard_Service/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}-dashboard:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # 6. Deploy dashboard to Vercel (main branch only)
+  #    Requires VERCEL_DEPLOY_HOOK_URL in repository secrets.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy Dashboard
+    runs-on: ubuntu-latest
+    needs: push-docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: curl --fail -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
