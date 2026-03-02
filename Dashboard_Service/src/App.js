@@ -4,6 +4,11 @@ import { OrbitControls } from '@react-three/drei';
 import WebSocketService from './services/WebSocketService';
 import Truck3D from './components/Truck3D';
 import DetectionOverlay from './components/DetectionOverlay';
+import Header from './components/Header/Header';
+import StatusDashboard from './components/StatusDashboard/StatusDashboard';
+import DetectionPanel from './components/DetectionPanel/DetectionPanel';
+import Alert from './components/ui/Alert';
+import SettingsModal from './components/Settings/SettingsModal';
 import './App.css';
 
 export default function App() {
@@ -182,118 +187,41 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
-      <div className="header">
-        <h1 className="title">
-          SafeDetect
-        </h1>
+      {/* Header Component */}
+      <Header
+        isConnected={isConnected}
+        serverIP={serverIP}
+        onReconnect={reconnect}
+        onSettings={() => { setPendingIP(serverIP); setShowSettings(s => !s); }}
+        cameraView={cameraView}
+        onCameraChange={setCameraView}
+      />
 
-        <div className="header-controls">
-          {/* Camera Controls */}
-          <div className="camera-controls">
-            {[
-              { view: 'default', icon: '🎯', title: 'Default View' },
-              { view: 'rear', icon: '🔄', title: 'Rear View' },
-              { view: 'left', icon: '⬅️', title: 'Left View' },
-              { view: 'right', icon: '➡️', title: 'Right View' }
-            ].map(({ view, icon, title }) => (
-              <button
-                key={view}
-                onClick={() => setCameraView(view)}
-                title={title}
-                className={`camera-button ${cameraView === view ? 'active' : ''}`}
-              >
-                {icon}
-              </button>
-            ))}
-          </div>
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        currentIP={serverIP}
+        onSave={(newIP) => setServerIP(newIP)}
+      />
 
-          <button
-            onClick={reconnect}
-            className="reconnect-button"
-          >
-            🔄 Reconnect
-          </button>
+      {/* Status Dashboard Component */}
+      <StatusDashboard
+        objectCount={detections.length}
+        fps={fps}
+        alertActive={alertActive}
+        connectionStatus={connectionStatus}
+      />
 
-          <button
-            onClick={() => { setPendingIP(serverIP); setShowSettings(s => !s); }}
-            className="reconnect-button"
-            title="Configure server IP"
-          >
-            ⚙️ Settings
-          </button>
-        </div>
-      </div>
-
-      {/* Settings Panel — configure WebSocket server IP */}
-      {showSettings && (
-        <div className="settings-panel">
-          <span className="settings-label">WebSocket Server IP</span>
-          <input
-            className="settings-input"
-            type="text"
-            value={pendingIP}
-            placeholder="e.g. 192.168.1.50 or localhost"
-            onChange={e => setPendingIP(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                setServerIP(pendingIP.trim());
-                setShowSettings(false);
-              }
-            }}
-          />
-          <button
-            className="reconnect-button"
-            onClick={() => { setServerIP(pendingIP.trim()); setShowSettings(false); }}
-          >
-            Apply &amp; Reconnect
-          </button>
-          <button
-            className="reconnect-button"
-            onClick={() => setShowSettings(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Status Bar */}
-      <div className="connection-container">
-        <div className={`status-text ${isConnected ? 'connected' : 'disconnected'}`}>
-          {connectionStatus}
-        </div>
-        <div className="server-text">
-          ws://{serverIP}:8081
-        </div>
-      </div>
-
-      {/* Stats Dashboard */}
-      <div className="stats-container">
-        {[
-          { label: 'Objects Detected', value: detections.length, icon: '🎯', color: '#3b82f6' },
-          { label: 'Frame Rate', value: `${fps} FPS`, icon: '⚡', color: '#10b981' },
-          { label: 'Alert Status', value: alertActive ? 'ACTIVE' : 'CLEAR', icon: alertActive ? '🚨' : '✅', color: alertActive ? '#ef4444' : '#10b981' }
-        ].map((stat, index) => (
-          <div key={index} className="stats-text">
-            <div>{stat.icon}</div>
-            <div>
-              {stat.value}
-            </div>
-            <div>
-              {stat.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Alert Overlay */}
-      {alertActive && (
-        <div className="alert-overlay">
-          <div className="alert-text">
-             BLIND SPOT ALERT! ⚠️
-          </div>
-        </div>
-      )}
+      {/* Alert Component */}
+      <Alert
+        type="danger"
+        title="BLIND SPOT ALERT!"
+        icon="🚨"
+        visible={alertActive}
+      >
+        Obstacle detected in blind spot zone
+      </Alert>
 
       {/* 3D Scene */}
       <div className="scene-container">
@@ -343,75 +271,20 @@ export default function App() {
         </Canvas>
       </div>
 
-      {/* Detections Panel */}
-      <div className="detections-container">
-        {detections.length === 0 ? (
-          <div className="empty-state">
-            <div>🔍</div>
-            <div className="empty-text">
-              No objects detected
-            </div>
-            <div className="empty-subtext">
-              Monitoring environment for potential hazards...
-            </div>
-          </div>
-        ) : (
-          <div className="detections-list">
-            {detections.map((detection, index) => {
-              const isInBlindSpot = detection.camera_zone &&
-                ['left', 'right', 'rear'].includes(detection.camera_zone);
-
-              return (
-                <div key={index} className="detection-card">
-                  <div className="detection-header">
-                    <span className="object-emoji">
-                      {getObjectEmoji(detection.object)}
-                    </span>
-                    <span className="object-type">
-                      {detection.object}
-                    </span>
-                    <span className="confidence">
-                      {(detection.confidence * 100).toFixed(1)}%
-                    </span>
-                  </div>
-
-                  <div className="detection-details">
-                    <div className="detail-text">
-                      📍 Position: X: {detection.position?.x?.toFixed(2) ?? 'N/A'}, Y: {detection.position?.y?.toFixed(2) ?? 'N/A'}
-                    </div>
-                    {detection.camera_zone && (
-                      <div className="detail-text">
-                        📷 Zone: {detection.camera_zone}
-                      </div>
-                    )}
-                    <div className="detail-text">
-                      ⏰ Detected: {new Date(detection.timestamp * 1000).toLocaleTimeString()}
-                    </div>
-                  </div>
-
-                  {isInBlindSpot && (
-                    <div className="blind-spot-indicator">
-                      <span className="blind-spot-text">
-                        🚨 BLIND SPOT DETECTED
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+      {/* Detection Panel Component */}
+      <div className="detections-wrapper">
+        <DetectionPanel detections={detections} />
       </div>
 
       {/* Footer */}
-      <div className="instructions">
+      <footer className="instructions">
         <div className="instruction-text">
           🟢 Vehicles • 🟡 Pedestrians • 🟠 Motorcycles
         </div>
         <div className="instruction-text">
           Real-time object detection and blind spot monitoring system
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

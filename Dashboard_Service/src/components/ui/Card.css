@@ -1,0 +1,88 @@
+/* Card Component Styles */
+
+.card {
+  border-radius: var(--radius-lg);
+  transition: var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Card Sections */
+.card__header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+}
+
+.card__content {
+  padding: var(--spacing-lg);
+}
+
+.card__footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ========================================
+   CARD VARIANTS
+   ======================================== */
+
+/* Elevated Card - Default with shadow */
+.card--elevated {
+  background: var(--color-glass-light);
+  border: 1px solid var(--color-border);
+  backdrop-filter: var(--backdrop-blur-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.card--elevated.card--hoverable:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Outlined Card - Minimal with border */
+.card--outlined {
+  background: transparent;
+  border: 1px solid var(--color-border-dark);
+}
+
+.card--outlined.card--hoverable:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-hover);
+}
+
+/* Filled Card - Solid background */
+.card--filled {
+  background: var(--color-bg-secondary);
+  border: none;
+}
+
+.card--filled.card--hoverable:hover {
+  background: var(--color-bg-tertiary);
+}
+
+/* ========================================
+   CARD STATES
+   ======================================== */
+
+.card--hoverable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.card--hoverable:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+}
+
+.card:focus-visible::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  z-index: 1;
+}

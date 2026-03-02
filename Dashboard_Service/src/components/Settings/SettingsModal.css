@@ -1,0 +1,155 @@
+/* SettingsModal Component Styles */
+
+.settings-modal__content {
+  width: 100%;
+}
+
+.settings-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.settings-modal__label {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-base);
+}
+
+.settings-modal__input-group {
+  display: flex;
+  align-items: center;
+  background: var(--color-glass-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition-colors);
+}
+
+.settings-modal__input-group:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.settings-modal__prefix,
+.settings-modal__suffix {
+  padding: var(--spacing-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+  font-weight: var(--font-weight-semibold);
+  user-select: none;
+}
+
+.settings-modal__prefix {
+  border-right: 1px solid var(--color-border);
+}
+
+.settings-modal__suffix {
+  border-left: 1px solid var(--color-border);
+}
+
+.settings-modal__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  padding: var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family-mono);
+  outline: none;
+}
+
+.settings-modal__input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.settings-modal__input--error {
+  color: var(--color-danger);
+}
+
+.settings-modal__error {
+  padding: var(--spacing-md);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settings-modal__hint {
+  padding: var(--spacing-lg);
+  background: var(--color-glass-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.settings-modal__hint p {
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.settings-modal__hint p:last-child {
+  margin-bottom: 0;
+}
+
+.settings-modal__hint ul {
+  margin: var(--spacing-sm) 0 0 var(--spacing-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.settings-modal__hint li {
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-modal__hint code {
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-family-mono);
+  color: var(--color-primary);
+}
+
+.settings-modal__footer {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 480px) {
+  .settings-modal__input-group {
+    flex-wrap: wrap;
+  }
+
+  .settings-modal__prefix,
+  .settings-modal__suffix {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+  }
+
+  .settings-modal__input {
+    padding: var(--spacing-sm);
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .settings-modal__prefix {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .settings-modal__suffix {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+}
