@@ -5,10 +5,9 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-glass-light);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  backdrop-filter: var(--backdrop-blur-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
@@ -84,15 +83,4 @@
   border-color: var(--color-border-dark);
 }
 
-/* ========================================
-   ANIMATION
-   ======================================== */
-
-.status-indicator--animated .status-indicator__dot {
-  animation: glow 2s ease-in-out infinite;
-  box-shadow: 0 0 20px currentColor;
-}
-
-.status-indicator--loading .status-indicator__dot {
-  animation: spin 1s linear infinite;
-}
+/* Animations removed - minimalist design */

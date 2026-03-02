@@ -1,11 +1,11 @@
 /* Button Component Styles */
 
 .button {
-  --button-bg: var(--color-primary);
-  --button-bg-hover: var(--color-primary-light);
+  --button-bg: var(--color-bg-tertiary);
+  --button-bg-hover: var(--color-border-dark);
   --button-text: var(--color-text-primary);
-  --button-border: var(--color-primary);
-  --button-shadow: var(--shadow-glow-primary);
+  --button-border: var(--color-border);
+  --button-shadow: none;
 
   display: inline-flex;
   align-items: center;
@@ -77,32 +77,28 @@
 
 /* Primary Variant */
 .button--primary {
-  --button-bg: var(--color-primary);
-  --button-bg-hover: var(--color-primary-light);
-  --button-border: var(--color-primary);
-  --button-shadow: var(--shadow-glow-primary);
+  --button-bg: var(--color-text-primary);
+  --button-bg-hover: var(--color-text-secondary);
+  --button-border: var(--color-text-primary);
+  --button-text: var(--color-bg-primary);
+  color: var(--button-text);
 }
 
 .button--primary:hover:not(:disabled) {
   background: var(--button-bg-hover);
-  box-shadow: var(--button-shadow);
-  transform: translateY(-2px);
+  border-color: var(--button-bg-hover);
 }
 
 /* Secondary Variant */
 .button--secondary {
-  --button-bg: var(--color-secondary);
-  --button-bg-hover: var(--color-secondary-light);
-  --button-border: var(--color-secondary);
-  background: var(--color-glass-light);
-  border-color: var(--color-border);
+  --button-bg: var(--color-bg-tertiary);
+  --button-bg-hover: var(--color-border-dark);
+  --button-border: var(--color-border);
 }
 
 .button--secondary:hover:not(:disabled) {
-  background: var(--color-secondary);
-  border-color: var(--color-secondary);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
-  transform: translateY(-2px);
+  background: var(--button-bg-hover);
+  border-color: var(--color-text-primary);
 }
 
 /* Danger Variant */
@@ -110,27 +106,23 @@
   --button-bg: var(--color-danger);
   --button-bg-hover: var(--color-danger-light);
   --button-border: var(--color-danger);
-  --button-shadow: var(--shadow-glow-danger);
 }
 
 .button--danger:hover:not(:disabled) {
   background: var(--button-bg-hover);
-  box-shadow: var(--button-shadow);
-  transform: translateY(-2px);
+  border-color: var(--button-bg-hover);
 }
 
 /* Success Variant */
 .button--success {
-  --button-bg: var(--color-success);
-  --button-bg-hover: var(--color-success-light);
-  --button-border: var(--color-success);
-  --button-shadow: var(--shadow-glow-success);
+  --button-bg: var(--color-bg-tertiary);
+  --button-bg-hover: var(--color-border-dark);
+  --button-border: var(--color-border);
 }
 
 .button--success:hover:not(:disabled) {
   background: var(--button-bg-hover);
-  box-shadow: var(--button-shadow);
-  transform: translateY(-2px);
+  border-color: var(--color-text-primary);
 }
 
 /* Ghost Variant - Transparent background */
@@ -142,7 +134,7 @@
 
 .button--ghost:hover:not(:disabled) {
   background: var(--color-bg-hover);
-  border-color: var(--color-primary);
+  border-color: var(--color-text-primary);
 }
 
 /* ========================================
@@ -150,7 +142,7 @@
    ======================================== */
 
 .button:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-text-primary);
   outline-offset: 2px;
 }
 
@@ -200,7 +192,6 @@
   justify-content: center;
   width: 1em;
   height: 1em;
-  animation: spin 1s linear infinite;
 }
 
 .button__spinner-dot {

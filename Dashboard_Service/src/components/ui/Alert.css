@@ -8,11 +8,9 @@
   min-width: 300px;
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  backdrop-filter: var(--backdrop-blur-lg);
-  border: 2px solid;
-  box-shadow: var(--shadow-lg);
+  border: 1px solid;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: var(--z-notification);
-  animation: slideInLeft 0.4s var(--ease-out);
 }
 
 .alert__content {
@@ -24,7 +22,6 @@
 .alert__icon {
   font-size: 24px;
   flex-shrink: 0;
-  animation: heartbeat 1.3s ease-in-out infinite;
 }
 
 .alert__text {
@@ -51,29 +48,26 @@
    ======================================== */
 
 .alert--danger {
-  background: linear-gradient(135deg, var(--color-danger), var(--color-danger-dark));
-  border-color: var(--color-danger-light);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-danger);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-glow-danger);
 }
 
 .alert--warning {
-  background: linear-gradient(135deg, var(--color-warning), var(--color-warning-dark));
-  border-color: var(--color-warning-light);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-glow-warning);
 }
 
 .alert--success {
-  background: linear-gradient(135deg, var(--color-success), var(--color-success-dark));
-  border-color: var(--color-success-light);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-glow-success);
 }
 
 .alert--info {
-  background: linear-gradient(135deg, var(--color-info), var(--color-info-dark));
-  border-color: var(--color-info-light);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
   color: var(--color-text-primary);
 }
 

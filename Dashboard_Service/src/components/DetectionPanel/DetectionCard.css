@@ -5,12 +5,12 @@
   overflow: hidden;
 }
 
-/* Stagger animation for multiple cards */
-.detection-card--index-0 { animation: slideInUp 0.4s var(--ease-out) 0ms forwards; }
-.detection-card--index-1 { animation: slideInUp 0.4s var(--ease-out) 50ms forwards; }
-.detection-card--index-2 { animation: slideInUp 0.4s var(--ease-out) 100ms forwards; }
-.detection-card--index-3 { animation: slideInUp 0.4s var(--ease-out) 150ms forwards; }
-.detection-card--index-4 { animation: slideInUp 0.4s var(--ease-out) 200ms forwards; }
+/* Removed animations - minimalist design */
+.detection-card--index-0 { }
+.detection-card--index-1 { }
+.detection-card--index-2 { }
+.detection-card--index-3 { }
+.detection-card--index-4 { }
 
 /* Header Section */
 .detection-card__header {
@@ -23,7 +23,6 @@
 .detection-card__emoji {
   font-size: 32px;
   flex-shrink: 0;
-  animation: float 2s ease-in-out infinite;
 }
 
 .detection-card__title-group {
@@ -79,16 +78,15 @@
   align-items: center;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
-  background: linear-gradient(135deg, var(--color-danger), var(--color-danger-dark));
-  border: 1px solid var(--color-danger-light);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
-  animation: pulse 1s ease-in-out infinite;
 }
 
 .detection-card__alert-icon {
   font-size: 20px;
   flex-shrink: 0;
-  animation: heartbeat 1.3s ease-in-out infinite;
+  color: var(--color-danger);
 }
 
 .detection-card__alert-text {

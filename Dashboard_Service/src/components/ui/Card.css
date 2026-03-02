@@ -30,15 +30,14 @@
 
 /* Elevated Card - Default with shadow */
 .card--elevated {
-  background: var(--color-glass-light);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  backdrop-filter: var(--backdrop-blur-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .card--elevated.card--hoverable:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-dark);
 }
 
 /* Outlined Card - Minimal with border */
@@ -48,7 +47,7 @@
 }
 
 .card--outlined.card--hoverable:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-text-primary);
   background: var(--color-bg-hover);
 }
 
@@ -72,7 +71,7 @@
 }
 
 .card--hoverable:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-text-primary);
   outline-offset: 2px;
   border-radius: var(--radius-lg);
 }
@@ -81,7 +80,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  border: 2px solid var(--color-primary);
+  border: 2px solid var(--color-text-primary);
   border-radius: var(--radius-lg);
   pointer-events: none;
   z-index: 1;

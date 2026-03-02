@@ -5,8 +5,7 @@
   align-items: center;
   gap: var(--spacing-lg);
   padding: var(--spacing-lg) var(--spacing-xl);
-  background: var(--color-glass-medium);
-  backdrop-filter: var(--backdrop-blur-lg);
+  background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border);
   position: relative;
   z-index: var(--z-sticky);
@@ -27,11 +26,8 @@
   margin: 0;
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
-  background: linear-gradient(135deg, #e6e8ed, var(--color-text-primary), #edc7da);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-text-primary);
   letter-spacing: var(--letter-spacing-wide);
-  animation: slideInLeft 0.8s var(--ease-out);
 }
 
 /* ========================================
@@ -56,11 +52,10 @@
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-xs);
-  background: var(--color-glass-light);
+  background: var(--color-bg-tertiary);
   padding: var(--spacing-xs) var(--spacing-md);
   border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-light);
-  backdrop-filter: var(--backdrop-blur-md);
+  border: 1px solid var(--color-border);
 }
 
 .camera-button {
