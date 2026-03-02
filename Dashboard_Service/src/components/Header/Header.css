@@ -1,0 +1,161 @@
+/* Header Component Styles */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background: var(--color-glass-medium);
+  backdrop-filter: var(--backdrop-blur-lg);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  z-index: var(--z-sticky);
+  flex-wrap: wrap;
+}
+
+/* ========================================
+   LOGO SECTION
+   ======================================== */
+
+.header__logo {
+  display: flex;
+  align-items: center;
+  min-width: fit-content;
+}
+
+.header__title {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, #e6e8ed, var(--color-text-primary), #edc7da);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: var(--letter-spacing-wide);
+  animation: slideInLeft 0.8s var(--ease-out);
+}
+
+/* ========================================
+   CONTROLS SECTION
+   ======================================== */
+
+.header__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+/* Camera Navigation */
+.header__camera-nav {
+  display: flex;
+  align-items: center;
+}
+
+.camera-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  background: var(--color-glass-light);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-light);
+  backdrop-filter: var(--backdrop-blur-md);
+}
+
+.camera-button {
+  min-width: fit-content;
+}
+
+/* Action Buttons */
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+/* ========================================
+   STATUS SECTION
+   ======================================== */
+
+.header__status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.header__server-ip {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+  letter-spacing: var(--letter-spacing-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 1024px) {
+  .header {
+    padding: var(--spacing-md) var(--spacing-lg);
+    gap: var(--spacing-md);
+  }
+
+  .header__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .header__controls {
+    gap: var(--spacing-md);
+  }
+
+  .header__server-ip {
+    max-width: 150px;
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+  }
+
+  .header__title {
+    font-size: var(--font-size-2xl);
+    text-align: center;
+  }
+
+  .header__controls {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .header__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header__actions button {
+    width: 100%;
+  }
+
+  .header__status {
+    margin-left: 0;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .camera-group {
+    width: 100%;
+    justify-content: center;
+  }
+}

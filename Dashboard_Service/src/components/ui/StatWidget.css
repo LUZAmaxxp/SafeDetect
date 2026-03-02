@@ -1,0 +1,139 @@
+/* StatWidget Component Styles */
+
+.stat-widget {
+  background: var(--color-glass-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  backdrop-filter: var(--backdrop-blur-md);
+  transition: var(--transition-base);
+  text-align: center;
+  min-width: 160px;
+}
+
+.stat-widget:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
+}
+
+.stat-widget__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.stat-widget__icon {
+  font-size: 32px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.stat-widget__label {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.stat-widget__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.stat-widget__value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* ========================================
+   TREND INDICATOR
+   ======================================== */
+
+.stat-widget__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stat-widget__trend-icon {
+  display: inline-block;
+}
+
+.stat-widget__trend-percent {
+  font-family: var(--font-family-mono);
+}
+
+.stat-widget__trend--up {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--color-success);
+}
+
+.stat-widget__trend--down {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+}
+
+.stat-widget__trend--stable {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+}
+
+/* ========================================
+   COLOR VARIANTS
+   ======================================== */
+
+.stat-widget--primary {
+  border-color: var(--color-border);
+}
+
+.stat-widget--primary:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow-primary);
+}
+
+.stat-widget--success {
+  border-color: var(--color-border);
+}
+
+.stat-widget--success:hover {
+  border-color: var(--color-success);
+  box-shadow: var(--shadow-glow-success);
+}
+
+.stat-widget--danger {
+  border-color: var(--color-border);
+}
+
+.stat-widget--danger:hover {
+  border-color: var(--color-danger);
+  box-shadow: var(--shadow-glow-danger);
+}
+
+.stat-widget--warning {
+  border-color: var(--color-border);
+}
+
+.stat-widget--warning:hover {
+  border-color: var(--color-warning);
+  box-shadow: var(--shadow-glow-warning);
+}
+
+.stat-widget--info {
+  border-color: var(--color-border);
+}
+
+.stat-widget--info:hover {
+  border-color: var(--color-info);
+}

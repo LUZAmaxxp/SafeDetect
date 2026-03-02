@@ -1,0 +1,104 @@
+/* Badge Component Styles */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  transition: var(--transition-base);
+}
+
+.badge__icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9em;
+}
+
+.badge__text {
+  display: inline-block;
+}
+
+/* ========================================
+   SIZE VARIANTS
+   ======================================== */
+
+.badge--sm {
+  padding: 2px 6px;
+  font-size: var(--font-size-xs);
+}
+
+.badge--md {
+  padding: 4px 8px;
+  font-size: var(--font-size-xs);
+}
+
+.badge--lg {
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+}
+
+/* ========================================
+   COLOR VARIANTS
+   ======================================== */
+
+.badge--default {
+  background: var(--color-glass-light);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.badge--primary {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.badge--success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.badge--danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+.badge--warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.badge--info {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--color-info);
+  border: 1px solid var(--color-info);
+}
+
+/* ========================================
+   OBJECT TYPE BADGES
+   ======================================== */
+
+.badge--car {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--color-object-car);
+  border: 1px solid var(--color-object-car);
+}
+
+.badge--motorcycle {
+  background: rgba(255, 152, 0, 0.1);
+  color: var(--color-object-motorcycle);
+  border: 1px solid var(--color-object-motorcycle);
+}
+
+.badge--person {
+  background: rgba(255, 235, 59, 0.1);
+  color: var(--color-object-person);
+  border: 1px solid var(--color-object-person);
+}
