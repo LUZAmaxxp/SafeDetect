@@ -1,118 +1,45 @@
-import React from 'react';
-import Badge from '../ui/Badge';
-import Card from '../ui/Card';
+import React, { useState, useEffect } from 'react';
 import './DetectionCard.css';
 
-/**
- * DetectionCard Component
- * Display individual object detection
- * 
- * @component
- * @param {Object} detection - Detection object with properties
- * @param {number} index - Card index for animations
- */
-export default function DetectionCard({ detection, index }) {
-  const getObjectEmoji = (objectType) => {
-    switch (objectType) {
-      case 'car': return '🚗';
-      case 'motorcycle': return '🏍️';
-      case 'person': return '🚶';
-      default: return '❓';
-    }
-  };
+const BLIND = ['left', 'right', 'rear'];
 
-  const getObjectBadgeVariant = (objectType) => {
-    switch (objectType) {
-      case 'car': return 'car';
-      case 'motorcycle': return 'motorcycle';
-      case 'person': return 'person';
-      default: return 'default';
-    }
-  };
+const EMOJI = { car: '\uD83D\uDE97', motorcycle: '\uD83C\uDFCD\uFE0F', person: '\uD83D\uDEB6', truck: '\uD83D\uDE9B', bus: '\uD83D\uDE8C' };
 
-  const isInBlindSpot = detection.camera_zone &&
-    ['left', 'right', 'rear'].includes(detection.camera_zone);
+function ago(ts, now) {
+  if (!ts) return '';
+  const s = Math.floor((now - ts * 1000) / 1000);
+  if (s < 2)    return 'now';
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
+}
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diff = now - date;
-    const seconds = Math.floor(diff / 1000);
+export default function DetectionCard({ detection }) {
+  const [now, setNow] = useState(Date.now);
 
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    return date.toLocaleTimeString();
-  };
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  const confidencePercent = (detection.confidence * 100).toFixed(1);
+  if (!detection) return null;
+  const { object = 'unknown', confidence = 0, camera_zone, timestamp } = detection;
+  const isBlind  = BLIND.includes(camera_zone);
+  const confPct  = (confidence * 100).toFixed(0);
+  const highConf = confidence >= 0.8;
 
   return (
-    <Card
-      variant="elevated"
-      hoverable
-      className={`detection-card detection-card--index-${index % 5}`}
-    >
-      {/* Header */}
-      <div className="detection-card__header">
-        <span className="detection-card__emoji" aria-hidden="true">
-          {getObjectEmoji(detection.object)}
-        </span>
-        
-        <div className="detection-card__title-group">
-          <h3 className="detection-card__title">
-            {detection.object.toUpperCase()}
-          </h3>
-          
-          <Badge
-            variant={getObjectBadgeVariant(detection.object)}
-            size="sm"
-          >
-            {confidencePercent}%
-          </Badge>
-        </div>
+    <div className={`dc${isBlind ? ' dc--blind' : ''}`}>
+      <div className="dc__top">
+        <span className="dc__emoji">{EMOJI[object] || '\u2753'}</span>
+        <span className="dc__type">{object.toUpperCase()}</span>
+        <span className={`dc__conf${highConf ? ' dc__conf--hi' : ''}`}>{confPct}%</span>
       </div>
-
-      {/* Content */}
-      <div className="detection-card__body">
-        {/* Position */}
-        <div className="detection-card__detail">
-          <span className="detection-card__label">Position:</span>
-          <span className="detection-card__value">
-            X: {detection.position?.x?.toFixed(2) ?? 'N/A'},
-            Y: {detection.position?.y?.toFixed(2) ?? 'N/A'}
-          </span>
-        </div>
-
-        {/* Zone Info */}
-        {detection.camera_zone && (
-          <div className="detection-card__detail">
-            <span className="detection-card__label">Zone:</span>
-            <Badge variant="info" size="sm">
-              {detection.camera_zone.toUpperCase()}
-            </Badge>
-          </div>
-        )}
-
-        {/* Timestamp */}
-        <div className="detection-card__detail">
-          <span className="detection-card__label">Detected:</span>
-          <span className="detection-card__value detection-card__timestamp">
-            {formatTime(detection.timestamp)}
-          </span>
-        </div>
-
-        {/* Blind Spot Alert */}
-        {isInBlindSpot && (
-          <div className="detection-card__alert">
-            <span className="detection-card__alert-icon" aria-hidden="true">
-              🚨
-            </span>
-            <span className="detection-card__alert-text">
-              BLIND SPOT DETECTED
-            </span>
-          </div>
-        )}
+      <div className="dc__bot">
+        <span className={`dc__zone-dot${isBlind ? ' dc__zone-dot--blind' : ''}`} />
+        <span className="dc__zone">{camera_zone ? camera_zone.toUpperCase() : 'UNKNOWN'}</span>
+        <span className="dc__time">{ago(timestamp, now)}</span>
       </div>
-    </Card>
+    </div>
   );
 }

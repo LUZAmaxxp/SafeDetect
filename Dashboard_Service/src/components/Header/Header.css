@@ -1,5 +1,141 @@
-/* Header Component Styles */
+/* Header — 60px top bar — white surface */
 
+.hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e2e2;
+  flex-shrink: 0;
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+}
+
+/* Logo */
+.hd__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.hd__logo-mark {
+  width: 26px;
+  height: 26px;
+  border: 2px solid #0a0a0a;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fc);
+  font-size: 14px;
+  font-weight: 700;
+  color: #0a0a0a;
+}
+.hd__logo-text {
+  font-family: var(--fc);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #0a0a0a;
+  text-transform: uppercase;
+}
+
+/* Camera nav */
+.hd__cam-nav {
+  display: flex;
+  background: #f0f0f0;
+  border: 1px solid #d8d8d8;
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+}
+.hd__cam-btn {
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
+  font-family: var(--fc);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: #888888;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.hd__cam-btn--active {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+.hd__cam-btn:not(.hd__cam-btn--active):hover {
+  color: #333333;
+}
+
+/* Right actions */
+.hd__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Connection pill */
+.hd__conn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #f0f0f0;
+  border: 1px solid #d8d8d8;
+  border-radius: 9999px;
+  padding: 5px 12px;
+}
+.hd__conn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #aaaaaa;
+  flex-shrink: 0;
+}
+.hd__conn--live .hd__conn-dot {
+  background: #2a8a2a;
+  animation: conn-pulse 2s ease-in-out infinite;
+}
+.hd__conn-label {
+  font-family: var(--fm);
+  font-size: 11px;
+  color: #555555;
+  white-space: nowrap;
+}
+
+@keyframes conn-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+/* Icon buttons */
+.hd__icon-btn {
+  width: 34px;
+  height: 34px;
+  background: #f0f0f0;
+  border: 1px solid #d8d8d8;
+  border-radius: 5px;
+  color: #666666;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.hd__icon-btn:hover {
+  background: #e2e2e2;
+  border-color: #bbbbbb;
+  color: #0a0a0a;
+}
+
+/* Legacy class — keep to avoid broken refs */
 .header {
   display: flex;
   align-items: center;

@@ -1,61 +1,56 @@
 import React from 'react';
-import StatWidget from '../ui/StatWidget';
 import './StatusDashboard.css';
 
 /**
- * StatusDashboard Component
- * Display real-time system metrics and statistics
- * 
- * @component
- * @param {number} objectCount - Current count of detected objects
- * @param {number} fps - Current frames per second
- * @param {boolean} alertActive - Whether alert is active
- * @param {string} connectionStatus - Connection status text
+ * StatusStrip — 38px inline metrics bar
+ * Props: objectCount, blindCount, fps, cameraView, isConnected, alertActive
  */
-export default function StatusDashboard({
+export default function StatusStrip({
   objectCount = 0,
+  blindCount = 0,
   fps = 0,
-  alertActive = false,
-  connectionStatus = 'Disconnected'
+  cameraView = 'default',
+  isConnected = false,
+  alertActive = false
 }) {
-  const stats = [
+  const items = [
     {
+      label: 'OBJECTS',
       value: objectCount,
-      label: 'Objects Detected',
-      icon: '🎯',
-      color: 'primary'
+      mod: ''
     },
     {
+      label: 'BLIND SPOT',
+      value: blindCount > 0 ? `${blindCount} ACTIVE` : 'CLEAR',
+      mod: blindCount > 0 ? 'danger' : ''
+    },
+    {
+      label: 'FRAME RATE',
       value: `${fps} FPS`,
-      label: 'Frame Rate',
-      icon: '⚡',
-      color: fps > 20 ? 'success' : fps > 10 ? 'warning' : 'danger'
+      mod: fps < 15 ? 'danger' : fps < 20 ? 'dim' : ''
     },
     {
-      value: alertActive ? 'ACTIVE' : 'CLEAR',
-      label: 'Alert Status',
-      icon: alertActive ? '🚨' : '✅',
-      color: alertActive ? 'danger' : 'success'
+      label: 'VIEW',
+      value: cameraView === 'default' ? '360°' : cameraView.toUpperCase(),
+      mod: 'dim'
+    },
+    {
+      label: 'STATUS',
+      value: isConnected ? 'LIVE' : 'OFFLINE',
+      mod: isConnected ? 'live' : 'danger'
     }
   ];
 
   return (
-    <div className="status-dashboard">
-      <div className="status-dashboard__title">
-        System Status
-      </div>
-      
-      <div className="status-dashboard__widgets">
-        {stats.map((stat, index) => (
-          <StatWidget
-            key={index}
-            value={stat.value}
-            label={stat.label}
-            icon={stat.icon}
-            color={stat.color}
-          />
-        ))}
-      </div>
+    <div className={`ss${alertActive ? ' ss--alert' : ''}`}>
+      {items.map(item => (
+        <div key={item.label} className="ss__item">
+          <span className="ss__label">{item.label}</span>
+          <span className={`ss__value${item.mod ? ` ss__value--${item.mod}` : ''}`}>
+            {item.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

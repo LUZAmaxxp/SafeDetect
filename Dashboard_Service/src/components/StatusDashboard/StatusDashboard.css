@@ -1,48 +1,178 @@
-/* StatusDashboard Component Styles */
+/* StatusStrip — 38px metrics bar */
 
-.status-dashboard {
-  padding: var(--spacing-lg) var(--spacing-xl);
-  background: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border);
+.ss {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 24px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.ss--alert {
+  border-bottom-color: var(--red);
 }
 
-.status-dashboard__title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-tertiary);
+.ss__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  height: 100%;
+  border-right: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.ss__item:first-child { padding-left: 0; }
+.ss__item:last-child  { border-right: none; }
+
+.ss__label {
+  font-family: var(--fc);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
-  margin-bottom: var(--spacing-lg);
-  padding-left: var(--spacing-md);
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.ss__value {
+  font-family: var(--fm);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t0);
+  white-space: nowrap;
+}
+.ss__value--danger { color: var(--red); }
+.ss__value--dim    { color: var(--t2); }
+.ss__value--live   { color: var(--green); }
+
+@media (max-width: 768px) {
+  .ss { padding: 0 16px; }
+  .ss__item { padding: 0 12px; }
+  .ss__label { display: none; }
+}
+@media (max-width: 480px) {
+  .ss { overflow-x: auto; }
+}
+
+/* Legacy aliases so nothing crashes */
+.status-dashboard { display: flex; align-items: center; } /* kept */
+
+.status-dashboard {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xl);
+  height: 40px;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  gap: 0;
+  flex-shrink: 0;
+}
+
+/* Hide the section title in compact mode */
+.status-dashboard__title {
+  display: none;
 }
 
 .status-dashboard__widgets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* ── Override StatWidget cards into inline items ── */
+.status-dashboard .stat-widget {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 0 20px;
+  min-width: unset;
+  height: 100%;
+  text-align: left;
+}
+
+.status-dashboard .stat-widget:first-child {
+  padding-left: 0;
+}
+
+.status-dashboard .stat-widget:last-child {
+  border-right: none;
+}
+
+.status-dashboard .stat-widget:hover {
+  background: transparent;
+  border-color: var(--color-border);
+}
+
+/* Hide icon & header wrapper, show label inline */
+.status-dashboard .stat-widget__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.status-dashboard .stat-widget__icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.status-dashboard .stat-widget__label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.status-dashboard .stat-widget__content {
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+}
+
+.status-dashboard .stat-widget__value {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Hide trend indicators in compact strip */
+.status-dashboard .stat-widget__trend {
+  display: none;
 }
 
 /* ========================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE
    ======================================== */
 
 @media (max-width: 768px) {
   .status-dashboard {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: 0 var(--spacing-lg);
+    height: 36px;
   }
 
-  .status-dashboard__title {
-    margin-bottom: var(--spacing-md);
+  .status-dashboard .stat-widget {
+    padding: 0 12px;
   }
 
-  .status-dashboard__widgets {
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: var(--spacing-md);
+  .status-dashboard .stat-widget__label {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
-  .status-dashboard__widgets {
-    grid-template-columns: 1fr;
+  .status-dashboard .stat-widget__icon {
+    display: none;
   }
 }

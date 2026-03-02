@@ -1,19 +1,9 @@
 import React from 'react';
-import Button from '../ui/Button';
-import StatusIndicator from '../ui/StatusIndicator';
 import './Header.css';
 
 /**
- * Header Component
- * Main dashboard header with navigation and controls
- * 
- * @component
- * @param {boolean} isConnected - WebSocket connection status
- * @param {string} serverIP - Current server IP
- * @param {function} onReconnect - Callback for reconnect button
- * @param {function} onSettings - Callback for settings button
- * @param {string} cameraView - Current camera view
- * @param {function} onCameraChange - Callback for camera view change
+ * Header — 60px top bar
+ * Left: logo | Center: camera segmented control | Right: connection pill + icon buttons
  */
 export default function Header({
   isConnected,
@@ -23,74 +13,47 @@ export default function Header({
   cameraView,
   onCameraChange
 }) {
-  const cameraViews = [
-    { id: 'default', label: 'Default', icon: '🎯' },
-    { id: 'rear', label: 'Rear', icon: '🔄' },
-    { id: 'left', label: 'Left', icon: '⬅️' },
-    { id: 'right', label: 'Right', icon: '➡️' }
+  const views = [
+    { id: 'default', label: '360°' },
+    { id: 'rear',    label: 'REAR' },
+    { id: 'left',    label: 'LEFT' },
+    { id: 'right',   label: 'RIGHT' },
   ];
 
   return (
-    <header className="header">
-      <div className="header__logo">
-        <h1 className="header__title">SafeDetect</h1>
+    <header className="hd">
+      {/* Logo */}
+      <div className="hd__logo">
+        <div className="hd__logo-mark">S</div>
+        <span className="hd__logo-text">SAFEDETECT</span>
       </div>
 
-      <div className="header__controls">
-        {/* Camera View Controls */}
-        <nav className="header__camera-nav" aria-label="Camera Views">
-          <div className="camera-group">
-            {cameraViews.map(view => (
-              <Button
-                key={view.id}
-                variant={cameraView === view.id ? 'primary' : 'ghost'}
-                size="sm"
-                onClick={() => onCameraChange(view.id)}
-                title={view.label}
-                icon={view.icon}
-                className="camera-button"
-              >
-                {view.label}
-              </Button>
-            ))}
-          </div>
-        </nav>
-
-        {/* Action Buttons */}
-        <div className="header__actions">
-          <Button
-            variant="success"
-            size="md"
-            onClick={onReconnect}
-            title="Reconnect to WebSocket server"
-            icon="🔄"
+      {/* Camera segmented control */}
+      <nav className="hd__cam-nav">
+        {views.map(v => (
+          <button
+            key={v.id}
+            className={`hd__cam-btn${cameraView === v.id ? ' hd__cam-btn--active' : ''}`}
+            onClick={() => onCameraChange(v.id)}
           >
-            Reconnect
-          </Button>
+            {v.label}
+          </button>
+        ))}
+      </nav>
 
-          <Button
-            variant="ghost"
-            size="md"
-            onClick={onSettings}
-            title="Configure server settings"
-            icon="⚙️"
-          >
-            Settings
-          </Button>
+      {/* Right actions */}
+      <div className="hd__actions">
+        {/* Connection pill */}
+        <div className={`hd__conn${isConnected ? ' hd__conn--live' : ''}`}>
+          <span className="hd__conn-dot" />
+          <span className="hd__conn-label">{serverIP} : 8081</span>
         </div>
-      </div>
 
-      {/* Connection Status */}
-      <div className="header__status">
-        <StatusIndicator
-          status={isConnected ? 'connected' : 'disconnected'}
-          size="sm"
-          animated
-          label={isConnected ? 'Connected' : 'Disconnected'}
-        />
-        <span className="header__server-ip" title={`ws://${serverIP}:8081`}>
-          ws://{serverIP}:8081
-        </span>
+        {/* Reconnect */}
+        <button className="hd__icon-btn" onClick={onReconnect} title="Reconnect">↺</button>
+
+        {/* Settings */}
+        <button className="hd__icon-btn" onClick={onSettings} title="Settings">⚙</button>
       </div>
     </header>
   );

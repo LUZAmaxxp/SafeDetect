@@ -2,12 +2,32 @@
 
 :root {
   /* ========================================
-     COLOR PALETTE - Monochrome + Danger Red Only
+     NEW DESIGN TOKENS (transition.json spec)
      ======================================== */
-  
-  /* Monochrome Base */
-  --color-bg-primary: #111111;
-  --color-bg-secondary: #1a1a1a;
+  --bg-0: #080808;
+  --bg-1: #0f0f0f;
+  --bg-2: #161616;
+  --bg-3: #1e1e1e;
+  --bg-4: #262626;
+  --line:  #2a2a2a;
+  --line-s:#383838;
+  --t0: #ffffff;
+  --t1: #c8c8c8;
+  --t2: #888888;
+  --t3: #555555;
+  --red: #cc2222;
+  --red-dim: rgba(204,34,34,0.15);
+  --red-glow: rgba(204,34,34,0.06);
+  --green: #2a7a2a;
+  --fc: 'Barlow Condensed', sans-serif;
+  --fm: 'JetBrains Mono', monospace;
+  --fu: 'Barlow', sans-serif;
+
+  /* ========================================
+     LEGACY ALIASES — kept for any remaining component refs
+     ======================================== */
+  --color-bg-primary: var(--bg-0);
+  --color-bg-secondary: var(--bg-2);
   --color-bg-tertiary: #222222;
   --color-text-primary: #ffffff;
   --color-text-secondary: #e0e0e0;

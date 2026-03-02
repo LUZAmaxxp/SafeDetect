@@ -1,105 +1,110 @@
-import React, { useState } from 'react';
+import React from 'react';
 import DetectionCard from './DetectionCard';
 import './DetectionPanel.css';
 
-/**
- * DetectionPanel Component
- * Display list of recent detections
- * 
- * @component
- * @param {Array} detections - Array of detection objects
- */
-export default function DetectionPanel({ detections = [] }) {
-  const [activeTab, setActiveTab] = useState('all');
+const BLIND = ['left', 'right', 'rear'];
+const TABS = [
+  { id: 'all',        label: 'ALL',      danger: false },
+  { id: 'blind',      label: 'BLIND',    danger: true  },
+  { id: 'car',        label: 'VEHICLES', danger: false },
+  { id: 'person',     label: 'PEOPLE',   danger: false },
+  { id: 'motorcycle', label: 'MOTO',     danger: false },
+];
 
-  // Filter detections by tab
-  const filteredDetections = detections.filter(detection => {
-    switch (activeTab) {
-      case 'blind-spot':
-        return detection.camera_zone && 
-               ['left', 'right', 'rear'].includes(detection.camera_zone);
-      case 'car':
-        return detection.object === 'car';
-      case 'person':
-        return detection.object === 'person';
-      case 'motorcycle':
-        return detection.object === 'motorcycle';
-      default:
-        return true;
-    }
-  });
+function filterTab(detections, tab) {
+  switch (tab) {
+    case 'blind':      return detections.filter(d => BLIND.includes(d.camera_zone));
+    case 'car':        return detections.filter(d => d.object === 'car' || d.object === 'truck' || d.object === 'bus');
+    case 'person':     return detections.filter(d => d.object === 'person');
+    case 'motorcycle': return detections.filter(d => d.object === 'motorcycle');
+    default:           return detections;
+  }
+}
 
-  const tabs = [
-    { id: 'all', label: 'All', count: detections.length, icon: '🎯' },
-    { id: 'blind-spot', label: 'Blind Spot', count: detections.filter(d => d.camera_zone && ['left', 'right', 'rear'].includes(d.camera_zone)).length, icon: '🚨' },
-    { id: 'car', label: 'Cars', count: detections.filter(d => d.object === 'car').length, icon: '🚗' },
-    { id: 'person', label: 'People', count: detections.filter(d => d.object === 'person').length, icon: '🚶' },
-    { id: 'motorcycle', label: 'Motorcycles', count: detections.filter(d => d.object === 'motorcycle').length, icon: '🏍️' }
-  ];
+export default function SidePanel({
+  detections = [],
+  activeTab = 'all',
+  onTabChange,
+  fps = 0,
+  alertActive = false,
+  blindCount = 0
+}) {
+  const filtered = filterTab(detections, activeTab);
+  const avgConf  = detections.length
+    ? (detections.reduce((s, d) => s + (d.confidence || 0), 0) / detections.length * 100).toFixed(0) + '%'
+    : '—';
 
   return (
-    <div className="detection-panel">
-      {/* Tabs */}
-      <div className="detection-panel__header">
-        <nav className="detection-panel__tabs" aria-label="Detection filters">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`detection-panel__tab ${activeTab === tab.id ? 'detection-panel__tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-              title={tab.label}
-              aria-selected={activeTab === tab.id}
-              role="tab"
-            >
-              <span className="detection-panel__tab-icon" aria-hidden="true">
-                {tab.icon}
-              </span>
-              <span className="detection-panel__tab-label">
-                {tab.label}
-              </span>
-              <span className="detection-panel__tab-count">
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </nav>
+    <aside className="sp">
+      {/* Header */}
+      <div className="sp__hd">
+        <span className="sp__title">Live Detections</span>
+        <div className="sp__count-wrap">
+          <span className="sp__count-num">{detections.length}</span>
+          <span className="sp__count-suffix">objects</span>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="detection-panel__content">
-        {filteredDetections.length === 0 ? (
-          <div className="detection-panel__empty">
-            <div className="detection-panel__empty-icon">🔍</div>
-            <div className="detection-panel__empty-title">
-              No detections found
-            </div>
-            <div className="detection-panel__empty-text">
-              {activeTab === 'all' 
-                ? 'Monitoring environment for potential hazards...'
-                : `No ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} detected`}
-            </div>
+      {/* Tabs */}
+      <div className="sp__tabs">
+        {TABS.map(t => {
+          const n = filterTab(detections, t.id).length;
+          const isActive = activeTab === t.id;
+          const cls = [
+            'sp__tab',
+            isActive ? 'sp__tab--active' : '',
+            t.danger ? 'sp__tab--danger' : '',
+          ].filter(Boolean).join(' ');
+          return (
+            <button
+              key={t.id}
+              className={cls}
+              onClick={() => onTabChange && onTabChange(t.id)}
+            >
+              {t.id === 'blind' && blindCount > 0 ? `BLIND ${blindCount}` : t.label}
+              {t.danger && n > 0 && (
+                <span className="sp__tab-badge">{n}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* List */}
+      <div className="sp__list">
+        {filtered.length === 0 ? (
+          <div className="sp__empty">
+            <div className="sp__empty-icon">◎</div>
+            <p className="sp__empty-text">No Detections</p>
           </div>
         ) : (
-          <div className="detection-panel__list">
-            {filteredDetections.map((detection, index) => (
-              <DetectionCard
-                key={`${detection.timestamp}-${index}`}
-                detection={detection}
-                index={index}
-              />
-            ))}
-          </div>
+          filtered.map((d, i) => (
+            <DetectionCard key={`${d.timestamp}-${i}`} detection={d} />
+          ))
         )}
       </div>
 
-      {/* Footer */}
-      {detections.length > 0 && (
-        <div className="detection-panel__footer">
-          <span className="detection-panel__footer-text">
-            Showing {filteredDetections.length} of {detections.length} detections
-          </span>
+      {/* Stats footer */}
+      <div className="sp__foot">
+        <div className="sp__stat">
+          <span className="sp__stat-label">CONF AVG</span>
+          <span className="sp__stat-value">{avgConf}</span>
         </div>
-      )}
-    </div>
+        <div className="sp__stat">
+          <span className="sp__stat-label">BLIND</span>
+          <span className={`sp__stat-value${blindCount > 0 ? ' sp__stat-value--danger' : ''}`}>{blindCount}</span>
+        </div>
+        <div className="sp__stat">
+          <span className="sp__stat-label">FPS</span>
+          <span className="sp__stat-value">{fps}</span>
+        </div>
+        <div className="sp__stat">
+          <span className="sp__stat-label">ALERT</span>
+          <span className={`sp__stat-value${alertActive ? ' sp__stat-value--danger' : ''}`}>{alertActive ? 'ON' : 'OFF'}</span>
+        </div>
+      </div>
+    </aside>
   );
 }
+
+
