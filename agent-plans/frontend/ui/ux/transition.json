@@ -1,0 +1,370 @@
+{
+  "prompt_version": "1.0.0",
+  "project": "SafeDetect Dashboard",
+  "task": "Implement a production-grade real-time truck blind spot monitoring dashboard. Replace ALL mock/simulated data with live WebSocket data from the backend. Preserve the exact UI design spec described below.",
+
+  "tech_stack": {
+    "framework": "React (Create React App)",
+    "renderer": "Three.js via direct import (import * as THREE from 'three')",
+    "websocket": "Native browser WebSocket API — do NOT use socket.io or any library",
+    "fonts": "Google Fonts — Barlow, Barlow Condensed, JetBrains Mono (loaded via @import in CSS string)",
+    "state": "React hooks only (useState, useEffect, useRef, useCallback)",
+    "no_external_ui_libs": "Do not use any UI component libraries (no MUI, no Ant Design, no Radix)"
+  },
+
+  "websocket_integration": {
+    "url_pattern": "ws://{serverIP}:8081",
+    "default_server_ip": "window.location.hostname",
+    "message_format": "JSON — each message is a UTF-8 string parsed with JSON.parse()",
+    "incoming_message_schema": {
+      "type": "object",
+      "required": ["detections"],
+      "properties": {
+        "detections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object":      { "type": "string", "enum": ["car", "motorcycle", "person", "unknown"] },
+              "confidence":  { "type": "number", "minimum": 0, "maximum": 1 },
+              "camera_zone": { "type": "string", "enum": ["front", "rear", "left", "right"] },
+              "timestamp":   { "type": "number", "description": "Unix timestamp in seconds" },
+              "bbox":        { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "[x1, y1, x2, y2]" }
+            }
+          }
+        }
+      }
+    },
+    "connection_lifecycle": {
+      "on_open": "Set isConnected = true. Log 'WebSocket connected'.",
+      "on_message": [
+        "Parse JSON: const data = JSON.parse(event.data)",
+        "Set detections state: setDetections(data.detections ?? [])",
+        "Increment message counter ref for FPS calculation",
+        "If any detection.camera_zone is in ['left','right','rear'], set alertActive=true and schedule setAlertActive(false) after 3000ms via setTimeout (clear previous timeout first)",
+        "If navigator.vibrate is available, call navigator.vibrate(200) on blind spot detections"
+      ],
+      "on_error": "Log error. Set isConnected = false.",
+      "on_close": "Set isConnected = false. Schedule reconnect attempt after 3000ms.",
+      "reconnect_logic": "Attempt reconnect after 3s on close. Expose a manual reconnect function called by the Reconnect button.",
+      "cleanup": "Close WebSocket on component unmount or on server IP change"
+    },
+    "fps_calculation": {
+      "method": "Count WebSocket messages received in a rolling 1-second window",
+      "implementation": "Use a useRef counter (msgCountRef). Every 1000ms via setInterval, read the counter, set fps state, reset counter to 0.",
+      "display": "'{n} FPS' — red if fps < 15, dim gray if fps < 20, white if fps >= 20"
+    },
+    "server_ip_state": {
+      "initial_value": "window.location.hostname || '192.168.1.100'",
+      "configurable_via": "SettingsModal — user types a new IP, clicks 'Apply & Reconnect', WebSocket closes and reopens to new IP",
+      "validation": "Accept IPv4 (e.g. 192.168.1.100), 'localhost', or valid hostnames. Reject invalid strings.",
+      "display": "Show '{serverIP} : 8081' in the connection pill in the header"
+    }
+  },
+
+  "design_system": {
+    "theme": "Dark monochrome. Pure blacks and grays only. Zero color except --red for danger states.",
+    "color_tokens": {
+      "--bg-0": "#080808",
+      "--bg-1": "#0f0f0f",
+      "--bg-2": "#161616",
+      "--bg-3": "#1e1e1e",
+      "--bg-4": "#262626",
+      "--line": "#2a2a2a",
+      "--line-s": "#383838",
+      "--t0": "#ffffff",
+      "--t1": "#c8c8c8",
+      "--t2": "#888888",
+      "--t3": "#555555",
+      "--red": "#cc2222",
+      "--red-dim": "rgba(204,34,34,0.15)",
+      "--red-glow": "rgba(204,34,34,0.06)",
+      "--green": "#2a7a2a",
+      "--fc": "'Barlow Condensed', sans-serif",
+      "--fm": "'JetBrains Mono', monospace",
+      "--fu": "'Barlow', sans-serif"
+    },
+    "accent_rule": "#cc2222 red is used EXCLUSIVELY for: active alert banner background, blind-spot zone card borders, blind-spot zone wireframe in 3D scene, detection blip markers for blind zones, BLIND SPOT tab active state, status strip danger values. Everything else is white/gray/black.",
+    "no_glassmorphism": true,
+    "no_looping_decorative_animations": true,
+    "no_colored_lights_in_three_scene": "Use only white/neutral lights in Three.js — no blue ambient, no cyan/pink point lights",
+    "borders": "1px solid var(--line) everywhere. Cards 8px border-radius. Header buttons 5px. Pills 9999px.",
+    "typography_rules": "All section labels and stat labels: font-family var(--fc), UPPERCASE, letter-spacing 2px+, font-weight 700, color var(--t3). All live numeric values: font-family var(--fm). Body/descriptions: var(--fu)."
+  },
+
+  "layout": {
+    "root": "flex column, height 100vh, overflow hidden, background var(--bg-0)",
+    "stack": [
+      "1. Header — height 60px, flex-shrink 0",
+      "2. Status Strip — height 38px, flex-shrink 0",
+      "3. Main Body — flex 1, overflow hidden, flex row: [Scene (flex 1) | Side Panel (width 290px)]"
+    ],
+    "alert_banner": "position absolute on the header, slides down from top on alertActive=true, full-width red bar"
+  },
+
+  "components": {
+
+    "Header": {
+      "left": {
+        "logo": "Text 'SafeDetect' — font-family var(--fc), font-size 22px, font-weight 700, letter-spacing 3px, uppercase. Preceded by a 26x26px bordered box with letter 'S' inside (border 2px solid white, border-radius 4px)."
+      },
+      "center": {
+        "camera_nav": "4 toggle buttons inside a pill container: '360°' (id: default) | 'REAR' | 'LEFT' | 'RIGHT'. Active button: background var(--t0), color var(--bg-0). Inactive: transparent bg, color var(--t2). Clicking a view button updates the Three.js camera to a preset angle.",
+        "camera_presets": {
+          "default": { "theta": 0.6, "phi": 1.0, "radius": 18 },
+          "rear":    { "theta": 3.34, "phi": 0.8, "radius": 15 },
+          "left":    { "theta": 4.71, "phi": 0.85, "radius": 14 },
+          "right":   { "theta": 1.57, "phi": 0.85, "radius": 14 }
+        }
+      },
+      "right": {
+        "connection_pill": "Shows '{serverIP} : 8081'. Green animated dot when connected (animation: opacity pulse 2s). Gray static dot when disconnected.",
+        "reconnect_button": "Icon-only button (↺ symbol), 34x34px. Calls manual reconnect function.",
+        "settings_button": "Icon-only button (⚙ symbol), 34x34px. Opens SettingsModal."
+      }
+    },
+
+    "StatusStrip": {
+      "height": "38px",
+      "background": "var(--bg-1)",
+      "border_bottom": "1px solid var(--line)",
+      "items": [
+        { "label": "OBJECTS",    "value": "detections.length (integer)" },
+        { "label": "BLIND SPOT", "value": "blindCount > 0 ? '{n} ACTIVE' : 'CLEAR'", "value_class": "blindCount > 0 ? 'danger' : ''" },
+        { "label": "FRAME RATE", "value": "'{fps} FPS'", "value_class": "fps < 15 ? 'danger' : fps < 20 ? 'dim' : ''" },
+        { "label": "VIEW",       "value": "cameraView.toUpperCase()", "value_class": "dim" },
+        { "label": "STATUS",     "value": "isConnected ? 'LIVE' : 'OFFLINE'", "value_class": "!isConnected ? 'danger' : ''" }
+      ],
+      "item_style": "flex row, align-center, gap 10px, padding 0 22px, border-right 1px solid var(--line). Label: var(--fc) 10px 600 letter-spacing 2px uppercase var(--t3). Value: var(--fm) 13px 700 var(--t0)."
+    },
+
+    "AlertBanner": {
+      "trigger": "alertActive === true",
+      "position": "position absolute, top 0, left 0, right 0, z-index 200 — renders inside the header's relative container so it slides down over the scene",
+      "animation": "transform translateY(-100%) when hidden, translateY(0) when visible — transition 0.2s ease",
+      "appearance": "background var(--red), flex row center, gap 12px, padding 11px 24px",
+      "content": "Two blinking white dots + text 'BLIND SPOT ALERT — OBSTACLE DETECTED'",
+      "text_style": "var(--fc), 13px, 700, letter-spacing 3px, uppercase, color #ffffff",
+      "blink_dot": "8px white circle, animation: opacity blinks at 0.6s step-end"
+    },
+
+    "ThreeJsScene": {
+      "canvas": "Native canvas element, fills parent div (width 100%, height 100%), cursor grab",
+      "renderer": "THREE.WebGLRenderer antialias=true, setClearColor(0x080808), shadowMap PCFSoft enabled, pixelRatio capped at 2",
+      "camera": "PerspectiveCamera FOV 55, near 0.1, far 120",
+      "scene_fog": "THREE.FogExp2(0x080808, 0.025)",
+      "lights": [
+        "AmbientLight(0xffffff, 0.45)",
+        "DirectionalLight(0xffffff, 1.3) at position (8,14,6), castShadow=true, shadow camera ±12",
+        "DirectionalLight(0xffffff, 0.35) at position (-6,6,-8) — fill light, no shadow"
+      ],
+      "ground": "PlaneGeometry(50,50) rotation.x=-PI/2, MeshStandardMaterial color 0x0d0d0d roughness 1, receiveShadow=true",
+      "grid": "GridHelper(50, 50, 0x1c1c1c, 0x161616), material transparent opacity 0.9",
+      "orbit_controls": {
+        "implementation": "Manual mouse/touch orbit — NO OrbitControls import needed",
+        "state": "useRef with { theta, phi, r, drag, lastX, lastY }",
+        "mouse_drag": "theta -= dx*0.006, phi clamped [0.18, 1.45] with dy*0.006",
+        "wheel_zoom": "r clamped [8, 36], deltaY * 0.025",
+        "touch": "Same logic on touchstart/touchmove",
+        "camera_position_update": "Every frame: camera.position.set(r*sin(phi)*sin(theta), r*cos(phi), r*sin(phi)*cos(theta)); camera.lookAt(0, 1.2, 0)"
+      },
+      "truck_model": {
+        "construction": "All from Three.js BoxGeometry, CylinderGeometry, RingGeometry primitives — NO external 3D model files",
+        "material_helper": "const M = (hex, rough=0.55, met=0.45) => new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: met })",
+        "parts": {
+          "frame": "Two BoxGeometry(0.12,0.18,7.8) rails at x=±0.85, y=0.27 in M(0x141414). Four cross members BoxGeometry(2.2,0.12,0.18) at z=-2.4,-0.5,1.5,3.0.",
+          "chassis": "BoxGeometry(2.3,0.3,7.8) at y=0.52, M(0x1a1a1a,0.8,0.45), castShadow",
+          "cargo_bed_floor": "BoxGeometry(2.1,0.07,4.0) at y=0.73 z=1.7, M(0x1d1d1d,0.85,0.35)",
+          "cargo_side_walls": "Two BoxGeometry(0.07,0.5,4.0) at x=±1.06 y=1.0 z=1.7, M(0x1a1a1a,0.9,0.3)",
+          "cargo_front_wall": "BoxGeometry(2.1,0.5,0.07) at y=1.0 z=-0.3",
+          "cargo_rear_wall": "BoxGeometry(2.1,0.42,0.07) at y=0.96 z=3.71",
+          "cargo_ribs": "5x BoxGeometry(2.1,0.06,0.06) at y=0.77, z from -0.05 step 0.85, M(0x252525,0.9,0.3)",
+          "cab_body": "BoxGeometry(2.2,1.3,2.3) at y=1.47 z=-2.45, M(0x282828,0.5,0.5), castShadow",
+          "cab_roof": "BoxGeometry(2.18,0.07,2.28) at y=2.15 z=-2.45, M(0x222222,0.65,0.4)",
+          "visor": "BoxGeometry(2.2,0.12,0.09) at y=2.1 z=-1.32, M(0x111111,0.9,0.4)",
+          "windshield": "BoxGeometry(1.9,0.88,0.06) at y=1.65 z=-1.32, MeshStandardMaterial({color:0x0a1420, roughness:0.05, metalness:0.15, transparent:true, opacity:0.75})",
+          "windshield_divider": "BoxGeometry(0.04,0.88,0.08) at y=1.65 z=-1.3, M(0x1a1a1a)",
+          "rear_window": "BoxGeometry(1.7,0.5,0.06) at y=1.72 z=-3.6, same transparent mat as windshield",
+          "side_windows": "Two BoxGeometry(0.06,0.48,1.4) at x=±1.11 y=1.72 z=-2.35",
+          "door_seams": "Two BoxGeometry(0.03,0.85,0.03) at x=±1.12 y=1.25 z=-2.6, M(0x111111,1,0.1)",
+          "grille_panel": "BoxGeometry(1.9,0.55,0.09) at y=0.98 z=-3.62, M(0x101010,0.9,0.6)",
+          "grille_bars": "9x BoxGeometry(0.055,0.52,0.14) at x from -4 to +4 step 0.22, y=0.98 z=-3.61, M(0x2a2a2a,0.9,0.8)",
+          "headlights": "Two BoxGeometry(0.38,0.2,0.09) at x=±0.68 y=1.0 z=-3.63, MeshStandardMaterial({color:0xffffff,emissive:0x999999,emissiveIntensity:0.35})",
+          "drl_strips": "Two BoxGeometry(0.38,0.05,0.09) at x=±0.68 y=1.14 z=-3.63, MeshStandardMaterial({color:0xffffff,emissive:0xaaaaaa,emissiveIntensity:0.5})",
+          "taillights": "Two BoxGeometry(0.28,0.18,0.07) at x=±0.76 y=0.98 z=3.67, MeshStandardMaterial({color:0x880000,emissive:0x550000,emissiveIntensity:0.6})",
+          "front_bumper": "BoxGeometry(2.4,0.26,0.22) at y=0.68 z=-3.72, M(0x181818,0.8,0.6)",
+          "rear_bumper": "BoxGeometry(2.4,0.22,0.2) at y=0.64 z=3.76, same material",
+          "side_mirrors": "Two mirror bodies BoxGeometry(0.1,0.22,0.35) at x=±1.34 y=1.92 z=-1.95 + stems BoxGeometry(0.06,0.09,0.3) at x=±1.26",
+          "exhaust_stacks": "Two CylinderGeometry(0.055,0.07,0.85,10) at x=±0.88 y=2.5 z=-2.7 + caps CylinderGeometry(0.08,0.055,0.05,10) at y+0.45",
+          "fuel_tank": "CylinderGeometry(0.24,0.24,1.2,12) rotation.z=PI/2 at x=-1.22 y=0.55 z=-0.3, M(0x1e1e1e,0.7,0.5)",
+          "wheels": {
+            "positions": [[-1.3,0.44,-2.65],[1.3,0.44,-2.65],[-1.3,0.44,1.45],[1.3,0.44,1.45],[-1.3,0.44,2.65],[1.3,0.44,2.65]],
+            "each_wheel": [
+              "CylinderGeometry(0.44,0.44,0.3,24) rotation.z=PI/2, M(0x0e0e0e,0.95,0.1), castShadow",
+              "CylinderGeometry(0.3,0.3,0.32,24) rotation.z=PI/2, M(0x181818,0.95,0.2) — inner tire",
+              "CylinderGeometry(0.25,0.25,0.05,18) rotation.z=PI/2, M(0x1f1f1f,0.8,0.5) — brake disc",
+              "CylinderGeometry(0.12,0.12,0.34,8) rotation.z=PI/2, M(0x333333,0.6,0.9) — hub",
+              "6 lug nuts: CylinderGeometry(0.025,0.025,0.035,6) arranged in circle r=0.09 around hub, offset to outer face"
+            ]
+          },
+          "mud_flaps": "BoxGeometry(0.06,0.45,0.35) at four positions behind front and rear wheel arches",
+          "step_bars": "Two BoxGeometry(0.08,0.07,0.5) at x=±1.16 y=0.68 z=-2.45, M(0x222222,0.8,0.7)"
+        },
+        "subtle_float_animation": "truck.position.y = Math.sin(t * 0.35) * 0.012 each frame (very subtle)"
+      },
+      "detection_zones": {
+        "description": "Four flat BoxGeometry zones on the ground plane around the truck. Each has a fill mesh and an EdgesGeometry wireframe outline.",
+        "definitions": {
+          "rear":  { "size": [4.2, 0.02, 3.8], "position": [0, 0.02, 5.4],  "color": "0xcc2222" },
+          "front": { "size": [4.0, 0.02, 3.0], "position": [0, 0.02, -5.4], "color": "0x333333" },
+          "left":  { "size": [3.0, 0.02, 7.5], "position": [-3.5, 0.02, 0], "color": "0xcc2222" },
+          "right": { "size": [3.0, 0.02, 7.5], "position": [3.5, 0.02, 0],  "color": "0xcc2222" }
+        },
+        "zone_material": "MeshBasicMaterial transparent:true, side:DoubleSide — fill + LineBasicMaterial for edges",
+        "active_state_update": "When detections state changes, compute Set of active camera_zones. For each zone: if active AND blind_zone: fillMat.opacity=0.10, edgeMat.opacity=0.85, color 0xcc2222. If active AND not blind: fillMat.opacity=0.04, edgeMat.opacity=0.3, color 0x555555. If inactive: fillMat.opacity=0, edgeMat.opacity=0.12 (blind) or 0.06 (front), color dimmed.",
+        "update_trigger": "useEffect watching detections array"
+      },
+      "detection_blips": {
+        "description": "For each active detection, render a sphere + ring at the corresponding zone position with jitter based on detection id",
+        "sphere": "SphereGeometry(0.12,8,8), MeshBasicMaterial — red (0xcc2222) for blind zones, gray (0x555555) for front. Position: zone base + jitter from sin/cos of detection.id.",
+        "ring": "RingGeometry(0.2,0.26,16), MeshBasicMaterial transparent opacity 0.4, rotation.x=-PI/2, flat on ground",
+        "jitter": "jx = sin(detection.id * 6.1) * 0.85, jz = cos(detection.id * 3.7) * 0.65",
+        "zone_bases": {
+          "front": [0, 0, -5.5],
+          "rear":  [0, 0, 5.5],
+          "left":  [-3.6, 0, 0],
+          "right": [3.6, 0, 0]
+        },
+        "lifecycle": "Remove all previous blip meshes from scene, add new ones. Store refs in a blipsRef array.",
+        "update_trigger": "Same useEffect as zone update"
+      },
+      "overlay_labels": [
+        "Top-left: 'LIVE · 3D SURROUND VIEW' — position absolute, z-index 10, var(--fc) 10px 600 letter-spacing 2.5px uppercase var(--t3)",
+        "Bottom-center above buttons: 'DRAG TO ROTATE · SCROLL TO ZOOM' — same style, opacity 0.7"
+      ],
+      "view_buttons": "4 buttons (360° | REAR | LEFT | RIGHT) at bottom-center of scene, semi-transparent dark bg. Active button: background rgba(204,34,34,0.15) border var(--red) color var(--red)."
+    },
+
+    "SidePanel": {
+      "width": "290px",
+      "panel_header": {
+        "title": "'Live Detections' — var(--fc) 10px 700 letter-spacing 3px uppercase var(--t3)",
+        "count": "detections.length — var(--fm) 28px 700 var(--t0), with ' objects' suffix in 13px var(--t3)"
+      },
+      "tabs": {
+        "items": [
+          { "id": "all",        "label": "ALL" },
+          { "id": "blind",      "label": "BLIND {blindCount if > 0}", "danger": true },
+          { "id": "car",        "label": "VEHICLES" },
+          { "id": "person",     "label": "PEOPLE" },
+          { "id": "motorcycle", "label": "MOTO" }
+        ],
+        "active_style": "color var(--t0), border-bottom 2px solid var(--t0). For danger tab when active: color var(--red), border-bottom var(--red).",
+        "inactive_style": "color var(--t3), border-bottom 2px transparent"
+      },
+      "filter_logic": {
+        "all": "detections (no filter)",
+        "blind": "detections.filter(d => ['left','right','rear'].includes(d.camera_zone))",
+        "car": "detections.filter(d => d.object === 'car')",
+        "person": "detections.filter(d => d.object === 'person')",
+        "motorcycle": "detections.filter(d => d.object === 'motorcycle')"
+      },
+      "detection_card": {
+        "normal": "background var(--bg-2), border 1px solid var(--line), border-radius 8px",
+        "blind_spot": "border-color var(--red), background var(--red-glow)",
+        "layout": "Two rows: top row = [emoji + object type uppercase | confidence %], bottom row = [zone dot + zone name | time ago]",
+        "emoji_map": { "car": "🚗", "motorcycle": "🏍️", "person": "🚶", "unknown": "❓" },
+        "confidence_badge": "var(--fm) 11px 700, background var(--bg-3), border 1px var(--line), border-radius 4px. If confidence > 0.8: color var(--t0), else color var(--t2).",
+        "zone_dot": "6px circle — red for left/right/rear, var(--t3) for front",
+        "time_ago": "Derive from detection.timestamp: now if <2s, '{n}s' if <60s, '{n}m' otherwise. Update on each render tick or every second.",
+        "animation": "slide-in keyframe on mount: opacity 0 → 1, translateY -4px → 0, 0.2s ease"
+      },
+      "empty_state": {
+        "icon": "◎ at 28px, opacity 0.3",
+        "text": "'No Detections' — var(--fc) 11px 700 letter-spacing 2.5px uppercase var(--t3)"
+      },
+      "stats_footer": {
+        "grid": "4-column grid, border-top 1px var(--line)",
+        "cells": [
+          { "label": "CONF AVG", "value": "Average confidence as '{n}%' or '—' if no detections" },
+          { "label": "BLIND",    "value": "blindCount", "class_rule": "blindCount > 0 ? 'red' : ''" },
+          { "label": "FPS",      "value": "fps (integer)" },
+          { "label": "ALERT",    "value": "alertActive ? 'ON' : 'OFF'", "class_rule": "alertActive ? 'red' : 'dim'" }
+        ],
+        "cell_style": "padding 12px 16px, border-right 1px var(--line) (last: none). Label: var(--fc) 9px 700 letter-spacing 2.5px uppercase var(--t3). Value: var(--fm) 18px 700 var(--t0). Red class: var(--red). Dim class: var(--t2) 14px."
+      }
+    },
+
+    "SettingsModal": {
+      "trigger": "Settings icon button in header",
+      "overlay": "Fixed full-screen rgba(0,0,0,0.7), z-index 1050, flex center",
+      "box": "background var(--bg-2), border 1px var(--line), border-radius 12px, max-width 400px, padding 24px",
+      "title": "'Server Configuration' — var(--fc) 16px 700 uppercase letter-spacing 2px",
+      "content": "Label 'WEBSOCKET HOST' + text input with current serverIP value",
+      "input_style": "width 100%, background var(--bg-3), border 1px var(--line), border-radius 6px, color var(--t0), font-family var(--fm), font-size 14px, padding 10px 14px",
+      "footer": "Two buttons: 'CANCEL' (ghost, closes modal) + 'APPLY & RECONNECT' (solid white bg black text). On apply: update serverIP state, close modal — the WebSocket useEffect watching serverIP will automatically reconnect.",
+      "validation": "Regex test for IPv4: /^(\\d{1,3}\\.){3}\\d{1,3}$/ OR hostname OR 'localhost'. Show inline error if invalid."
+    }
+  },
+
+  "state_management": {
+    "detections":    "array — set by WebSocket onmessage. Default [].",
+    "isConnected":   "boolean — set by ws.onopen/onclose. Default false.",
+    "serverIP":      "string — default window.location.hostname || '192.168.1.100'. Changing this triggers WebSocket reconnect.",
+    "alertActive":   "boolean — true when blind spot detection received. Auto-resets after 3000ms.",
+    "fps":           "integer — updated every 1000ms from message rate counter.",
+    "cameraView":    "string enum: 'default'|'rear'|'left'|'right'. Default 'default'.",
+    "activeTab":     "string enum: 'all'|'blind'|'car'|'person'|'motorcycle'. Default 'all'.",
+    "settingsOpen":  "boolean — controls SettingsModal visibility."
+  },
+
+  "derived_values": {
+    "blindCount":   "detections.filter(d => ['left','right','rear'].includes(d.camera_zone)).length",
+    "filteredDets": "Apply activeTab filter logic to detections array",
+    "avgConf":      "detections.length ? (sum of confidence / count * 100).toFixed(0) + '%' : '—'"
+  },
+
+  "file_structure": {
+    "option_a_single_file": "All in src/App.js — CSS string injected via <style> tag, Three.js scene in a useEffect hook, all components as functions in same file. Simplest approach.",
+    "option_b_multi_file": {
+      "src/App.js": "Root component — all state, WebSocket logic, layout assembly",
+      "src/hooks/useWebSocket.js": "WebSocket hook — manages connection, reconnect, message parsing, fps counter",
+      "src/hooks/useThreeScene.js": "Three.js scene setup, truck model, zone meshes, blips — accepts detections + cameraView as params",
+      "src/components/Header.jsx": "Header component",
+      "src/components/StatusStrip.jsx": "Status strip",
+      "src/components/SidePanel.jsx": "Side panel with tabs + detection list",
+      "src/components/SettingsModal.jsx": "Settings modal",
+      "src/styles/variables.css": "CSS custom properties"
+    }
+  },
+
+  "implementation_constraints": [
+    "Do NOT import OrbitControls or any @react-three/drei — implement orbit manually with mouse events",
+    "Do NOT use react-three-fiber — use THREE directly with a canvas ref",
+    "Do NOT use localStorage or sessionStorage",
+    "Do NOT add any colors other than white, gray, black, and #cc2222 red",
+    "Do NOT add glassmorphism (no backdrop-filter blur on panels)",
+    "Do NOT add looping glow/pulse animations on elements other than the connection dot and alert blinking dots",
+    "Three.js lights must be white/neutral only — no colored tints",
+    "WebSocket must reconnect automatically on close after 3 seconds",
+    "All Three.js objects must be properly disposed on component unmount to prevent memory leaks",
+    "ResizeObserver must be used to keep canvas resolution correct on resize",
+    "Pixel ratio must be capped at 2 for performance"
+  ],
+
+  "replace_mock_data": {
+    "instruction": "The reference implementation uses setInterval with Math.random() to simulate detections. REMOVE ALL of this. Replace with the WebSocket integration described above. The only data source for detections, connection status, and fps must be the live WebSocket connection.",
+    "remove": [
+      "Any setInterval that generates random detections",
+      "Any Math.random() calls for detection data",
+      "Any hardcoded detection arrays",
+      "The _gid counter and mkDet() function"
+    ],
+    "keep": [
+      "The fps setInterval (reading from msgCountRef — this is legitimate)",
+      "The timeAgo() utility function",
+      "All UI rendering logic",
+      "All Three.js scene logic"
+    ]
+  }
+}

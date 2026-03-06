@@ -42,8 +42,12 @@ WEBSOCKET_HOST = os.environ.get("WEBSOCKET_HOST", "localhost")
 WEBSOCKET_PORT = int(os.environ.get("WEBSOCKET_PORT", 8765))
 
 # Kafka Configuration
-KAFKA_HOST = os.environ.get("KAFKA_HOST")
-KAFKA_PORT = int(os.environ.get("KAFKA_PORT"))
+# When running natively (outside Docker) point to the PLAINTEXT_HOST listener:
+#   KAFKA_HOST=localhost KAFKA_PORT=29092
+# When running inside Docker Compose use the internal listener:
+#   KAFKA_HOST=kafka KAFKA_PORT=9092
+KAFKA_HOST = os.environ.get("KAFKA_HOST", "localhost")
+KAFKA_PORT = int(os.environ.get("KAFKA_PORT", "29092"))
 KAFKA_TOPIC = os.environ.get("KAFKA_TOPIC", "detections")
 
 # Detection Configuration

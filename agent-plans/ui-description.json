@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "project": "SafeDetect Dashboard",
+    "purpose": "Real-time truck blind spot monitoring dashboard. A Python/YOLO backend detects objects around a truck via cameras, publishes to Kafka, a Node.js bridge streams them over WebSocket, and this React frontend visualises detections as a live 3D scene with alert system.",
+    "framework": "React 18 (CRA + Webpack 5)",
+    "bundler": "Webpack 5 (custom config at Dashboard_Service/webpack.config.js)",
+    "renderer": "Plain Three.js (import * as THREE from 'three') — NO @react-three/fiber, NO @react-three/drei, NO OrbitControls import. Manual orbit via mouse events implemented in useThreeScene hook.",
+    "font": "AeonikProTRIAL — loaded from local .otf files (Regular 400, Bold 700, Light 300). Falls back to system sans-serif.",
+    "websocket": "ws://{serverIP}:8081 — receives JSON messages with a detections array",
+    "hooksArchitecture": {
+      "useWebSocket": "src/hooks/useWebSocket.js — manages WS lifecycle, auto-reconnect 3 s, FPS counter via setInterval",
+      "useThreeScene": "src/hooks/useThreeScene.js — full Three.js scene setup (renderer, camera, lights, truck mesh, idle/active zones, orbit controls, animation loop)"
+    }
+  },
+
+  "designLanguage": {
+    "theme": "Split: Header + side panel = white/off-white. 3D scene canvas = light gray (#f0f0f0). The dark CSS token variables exist but are NOT applied to the main UI surfaces.",
+    "colorPhilosophy": "One accent rule: #CC2222 red is used EXCLUSIVELY for danger/alert states. Everything else is white, light-gray, or near-black text.",
+    "glassEffect": "NONE — all surfaces are opaque solid colors.",
+    "animations": "Minimal — only functional state transitions (hover 200 ms, alert slide-in from top). No looping animations.",
+    "shadows": "Minimal — 0 1px 3px rgba(0,0,0,0.06) on cards only.",
+    "borders": "1px solid #e2e2e2 separates all light-theme sections and cards.",
+    "borderRadius": "Cards 8px, buttons 6px, pill for camera group selector.",
+    "spacing": "8px base grid"
+  },
+
+  "colorTokens": {
+    "note": "Dark tokens (--bg-0 through --bg-4) are defined in variables.css but the main UI surfaces override them with explicit light values.",
+    "sceneBackground": "#f0f0f0 — Three.js renderer clear color AND .app__scene CSS background",
+    "headerBackground": "#ffffff",
+    "sidePanelBackground": "#f5f5f5",
+    "cardBackground": "#ffffff",
+    "footerBarBackground": "#ffffff",
+    "borderColor": "#e2e2e2",
+    "primaryText": "#0a0a0a",
+    "secondaryText": "#666666",
+    "mutedText": "#aaaaaa",
+    "danger": "#cc2222",
+    "dangerDim": "rgba(204,34,34,0.04) — subtle blind-spot card tint",
+    "activeButtonBg": "#0a0a0a",
+    "activeButtonText": "#ffffff",
+    "inactiveButtonText": "#888888"
+  },
+
+  "typography": {
+    "primaryFamily": "AeonikProTRIAL, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "monoFamily": "'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
+    "condensedFamily": "'Barlow Condensed', sans-serif",
+    "cssVariables": {
+      "--fc": "'Barlow Condensed'",
+      "--fm": "'JetBrains Mono'",
+      "--fu": "'Barlow'"
+    }
+  },
+
+  "overallLayout": {
+    "rootElement": ".app",
+    "rootStyles": "display:flex; flex-direction:column; height:100vh; overflow:hidden",
+    "stackOrder": [
+      "1. Header (.hd) via .app__header-wrap — flex-shrink:0; position:relative (alert banner anchored here)",
+      "2. Alert banner (.alert-banner) — position:absolute top:0 left:0 right:0 inside header-wrap; slides down from translateY(-100%) to translateY(0)",
+      "3. Main body (.app__body) — flex:1; display:flex; flex-direction:row; overflow:hidden",
+      "   ├── 3D Scene (.app__scene) — flex:1; position:relative; background:#f0f0f0",
+      "   │     ├── canvas (.three-canvas) — width:100%; height:100%; cursor:grab",
+      "   │     ├── scene label (.scene-label) — position:absolute labels",
+      "   │     └── view buttons (.scene-views) — position:absolute bottom:14px left:50% translateX(-50%)",
+      "   └── Side panel (.sp via DetectionPanel) — fixed 290px width; background:#f5f5f5"
+    ]
+  },
+
+  "components": {
+    "Header": {
+      "file": "src/components/Header/Header.js",
+      "cssFile": "src/components/Header/Header.css",
+      "height": "~60px",
+      "background": "#ffffff",
+      "borderBottom": "1px solid #e2e2e2",
+      "layout": "flex row, space-between, align-center, gap 16px, padding 0 20px",
+      "sections": {
+        "left__logo": {
+          "element": ".hd__logo",
+          "content": "mark (.hd__logo-mark — border 1px #0a0a0a square) + text (.hd__logo-text 'SafeDetect')",
+          "styles": "color:#0a0a0a; font-weight:700; letter-spacing:0.3px"
+        },
+        "center__cameraNav": {
+          "element": ".hd__cam-nav",
+          "content": "4 buttons: DEFAULT | LEFT | RIGHT | REAR",
+          "containerStyles": "background:#f0f0f0; border:1px solid #d8d8d8; border-radius:9999px; padding:3px",
+          "buttonStyles": ".hd__cam-btn — color:#888888 inactive; active: background:#0a0a0a color:#ffffff"
+        },
+        "right__actions": {
+          "element": ".hd__right",
+          "content": "connection indicator (.hd__conn — dot + label) + icon buttons (.hd__icon-btn) for reconnect and settings",
+          "connStyles": "background:#f0f0f0; border:1px solid #d8d8d8; border-radius:6px",
+          "dotColors": "disconnected: #aaaaaa | connected: #2a8a2a"
+        }
+      }
+    },
+
+    "ThreeDScene": {
+      "implementation": "src/hooks/useThreeScene.js — initialised via useRef canvas element in App.js",
+      "library": "Plain Three.js (import * as THREE from 'three') — NO fiber/drei",
+      "canvasClearColor": "0xf0f0f0 (light gray)",
+      "fog": "THREE.FogExp2(0xf0f0f0, 0.018)",
+      "lighting": [
+        "AmbientLight(0xffffff, 0.85) — soft fill, no color tint",
+        "DirectionalLight(0xffffff, 1.6) position(8,12,6) — key light, no color tint"
+      ],
+      "ground": "PlaneGeometry large, MeshStandardMaterial color:0xe4e4e4",
+      "grid": "GridHelper colors 0xbbbbbb (main) / 0xcccccc (sub)",
+      "truckMesh": "BoxGeometry primitives composed in a group — cab + chassis + roof",
+      "zones": {
+        "blind": "left, right, rear — idle edge 0xcc4444 @ opacity:0.25; active fill 0xcc4444 @ 0.20, edge @ 0.85",
+        "front": "non-blind — idle edge 0x999999 @ opacity:0.18; active fill 0x333333 @ 0.06, edge @ 0.40"
+      },
+      "orbit": "Manual — mousedown/mousemove/mouseup/wheel event listeners on canvas; spherical coords; damping",
+      "cameraViews": {
+        "default": "spherical r=14, phi=π/4, theta=π/4",
+        "left": "r=12, phi=π/3, theta=-π/2",
+        "right": "r=12, phi=π/3, theta=π/2",
+        "rear": "r=12, phi=π/4, theta=π"
+      }
+    },
+
+    "DetectionPanel": {
+      "file": "src/components/DetectionPanel/DetectionPanel.js",
+      "cssFile": "src/components/DetectionPanel/DetectionPanel.css",
+      "position": "Right side panel — fixed 290px width inside .app__body flex row",
+      "background": "#f5f5f5",
+      "borderLeft": "1px solid #e2e2e2",
+      "layout": "flex column, height 100%",
+      "header": {
+        "content": "title + live count badge",
+        "borderBottom": "1px solid #e2e2e2"
+      },
+      "tabs": {
+        "ids": ["all", "blind", "car", "person", "motorcycle"],
+        "labels": ["All", "Blind", "Car", "Person", "Motorcycle"],
+        "tabStyle": "color:#aaaaaa inactive; active: color:#0a0a0a border-bottom:2px solid #0a0a0a",
+        "count badge": "28px × 20px, background:#f0f0f0 inactive; active: background:#0a0a0a color:#ffffff"
+      },
+      "list": "scrollable list of DetectionCard components",
+      "footer": ".sp__foot — background:#ffffff; border-top:#e2e2e2; shows stat summary (avgConf, count)",
+      "filterLogic": "all=everything | blind=camera_zone in [left,right,rear] | car/person/motorcycle=type match",
+      "props": ["detections (array)"]
+    },
+
+    "DetectionCard": {
+      "file": "src/components/DetectionPanel/DetectionCard.js",
+      "cssFile": "src/components/DetectionPanel/DetectionCard.css",
+      "background": "#ffffff",
+      "border": "1px solid #e2e2e2",
+      "boxShadow": "0 1px 3px rgba(0,0,0,0.06)",
+      "blindVariant": "border-color:var(--red); background:rgba(204,34,34,0.04)",
+      "sections": {
+        "header": "object type label (.dc__type color:#0a0a0a) + confidence badge (.dc__conf bg:#f2f2f2 border:#e0e0e0 color:#666666)",
+        "meta": "zone dot (.dc__zone-dot — #bbbbbb normal, var(--red) blind) + zone text + timestamp (.dc__time live-updating, shows 'now' when <2 s)"
+      },
+      "dataShape": {
+        "object": "string: car | motorcycle | person",
+        "confidence": "float 0.0–1.0",
+        "camera_zone": "string: left | right | rear | front",
+        "timestamp": "unix timestamp seconds",
+        "bbox": "[x1, y1, x2, y2]"
+      },
+      "props": ["detection (object)"]
+    },
+
+    "AlertBanner": {
+      "element": ".alert-banner (in App.js)",
+      "position": "position:absolute inside .app__header-wrap; slides down from top when active",
+      "background": "var(--red) #cc2222",
+      "textColor": "#ffffff",
+      "transition": "transform 200ms ease",
+      "trigger": "any detection where camera_zone is left | right | rear"
+    },
+
+    "SettingsModal": {
+      "file": "src/components/Settings/SettingsModal.js",
+      "cssFile": "src/components/Settings/SettingsModal.css",
+      "triggeredBy": "settings icon button in Header right area",
+      "content": "WebSocket server IP input + apply button",
+      "props": ["isOpen", "onClose", "currentIP", "onSave"]
+    }
+  },
+
+  "dataFlow": {
+    "websocketURL": "ws://{serverIP}:8081",
+    "hook": "useWebSocket(serverIP) in App.js — returns { detections, connected, fps, reconnect }",
+    "incomingMessage": {
+      "type": "object with detections array"
+    },
+    "DetectionObject": {
+      "object": "string — 'car' | 'motorcycle' | 'person'",
+      "confidence": "float 0.0–1.0",
+      "camera_zone": "string — 'left' | 'right' | 'rear' | 'front'",
+      "timestamp": "unix timestamp (seconds)",
+      "bbox": "[x1, y1, x2, y2]"
+    },
+    "blindSpotTrigger": "camera_zone in ['left','right','rear']",
+    "alertBehavior": "alert-banner slides down for 3 s then retracts",
+    "fps": "message count per second tracked by useWebSocket setInterval"
+  },
+
+  "fileStructure": {
+    "src/App.js": "Root — state, layout, useWebSocket + useThreeScene wiring",
+    "src/App.css": "Global layout: .app, .app__header-wrap, .alert-banner, .app__body, .app__scene, .three-canvas, .scene-label, .scene-views, .scene-view-btn",
+    "src/hooks/useWebSocket.js": "WebSocket lifecycle hook",
+    "src/hooks/useThreeScene.js": "Three.js scene hook — renderer, lights, truck, zones, orbit, animation loop",
+    "src/styles/variables.css": "CSS custom properties (design tokens) — --bg-0 to --bg-4, --red, --red-dim, --fc, --fm, --fu",
+    "src/styles/animations.css": "Keyframe animations",
+    "src/styles/responsive.css": "Responsive utilities",
+    "src/styles/accessibility.css": "Focus styles, sr-only, reduced motion",
+    "src/components/Header/": "Header.js + Header.css (white navbar)",
+    "src/components/DetectionPanel/": "DetectionPanel.js + DetectionPanel.css + DetectionCard.js + DetectionCard.css (white cards)",
+    "src/components/Settings/": "SettingsModal.js + SettingsModal.css",
+    "src/components/ui/": "Alert, Badge, Button, Card, Modal, StatusIndicator, StatWidget (each .js + .css)",
+    "src/components/Truck3D.js": "Legacy — truck mesh now built inside useThreeScene.js directly",
+    "src/components/DetectionOverlay.js": "3D overlay helpers",
+    "src/fonts/": "AeonikProTRIAL-Regular.otf, AeonikProTRIAL-Bold.otf, AeonikProTRIAL-Light.otf"
+  },
+
+  "knownInconsistencies": [
+    "Truck3D.js and DetectionOverlay.js exist as separate files but the active scene is fully driven by useThreeScene.js — those old component files may be unused stubs",
+    "Dark --bg-* CSS tokens remain in variables.css but the main UI surfaces use explicit light values (#ffffff, #f5f5f5, #f0f0f0) — tokens are not wired to the white theme yet"
+  ]
+}
+

@@ -1,22 +1,32 @@
 # SafeDetect Integration Guide
 
-How to integrate the SafeDetect blind spot detection system components and customize for specific use cases with Kafka messaging.
+How to integrate the SafeDetect blind spot detection system components and customise for specific use cases.
 
 ## 🔗 Component Integration
 
 ### Overview
 
-SafeDetect consists of four main components:
-1. **Computer Vision Backend** (Python) - YOLOv8 detection with Kafka producer
-2. **Kafka Message Queue** - Reliable communication between backend services
-3. **Node.js Backend** - Kafka consumer + WebSocket server for real-time web updates
-4. **React Frontend** - 3D visualization and user interface
+SafeDetect consists of four services:
+1. **CV Service** (`backend_Python/`) — YOLOv8 detection, Kafka producer
+2. **Kafka** (Docker) — async message queue
+3. **WS Bridge** (`Dashboard_Service/backend_Kafka/`) — Kafka consumer + WebSocket server (port 8081)
+4. **React Dashboard** (`Dashboard_Service/src/`) — live 3D scene + detection side panel
 
 ### Data Flow
 
 ```
-Camera Input → YOLOv8 Detection → Blind Spot Analysis → Kafka Producer → Kafka Topic → Node.js Consumer → WebSocket → React Frontend
+Camera → YOLOv8 → Blind Spot Analysis → Kafka Producer
+  → Kafka Topic (detections) → Node.js Kafka Consumer
+    → WebSocket broadcast (ws://HOST:8081) → useWebSocket hook
+      → React state → useThreeScene (3D zones) + DetectionPanel
 ```
+
+### Architecture Notes
+
+- The React app uses **two custom hooks**: `useWebSocket` handles the WS connection and `useThreeScene` owns the entire Three.js scene lifecycle (renderer, lights, truck mesh, zone meshes, orbit, animation loop).
+- Three.js is imported as plain `import * as THREE from 'three'` — **no `@react-three/fiber`, no `@react-three/drei`**.
+- Kafka: port **9092** is the internal Docker listener. Port **29092** is the host-machine listener. Native services must use **29092**.
+
 
 ## 🛠️ Backend Integration
 
@@ -134,26 +144,24 @@ const triggerCustomAlert = async (detection) => {
 };
 ```
 
-### Custom 3D Models
+### Custom 3D Truck Geometry
 
-Replace the basic truck model with custom 3D models:
+The 3D scene is entirely managed by the `useThreeScene` hook (`Dashboard_Service/src/hooks/useThreeScene.js`). There is no separate model loader — the truck is built from `BoxGeometry` primitives. To customise the geometry, edit the `_buildTruck()` section inside that hook.
+
+> **Important**: The dashboard uses **plain Three.js** (`import * as THREE from 'three'`). There is no `@react-three/fiber`, no `@react-three/drei`, and no `OrbitControls` import. Orbit is implemented via manual mouse event listeners on the canvas element.
+
+To swap in a GLTF model:
 
 ```javascript
-// Dashboard_Service/src/components/CustomTruck.js
-import { useGLTF } from '@react-three/drei';
+// Install separately: npm install three   (already in deps)
+// Use THREE.GLTFLoader — do NOT import from '@react-three/drei'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-export default function CustomTruck() {
-    const { nodes, materials } = useGLTF('/models/truck.glb');
-
-    return (
-        <group>
-            <primitive object={nodes.TruckBody} material={materials.Body} />
-            <primitive object={nodes.Wheels} material={materials.Wheel} />
-            {/* Add blind spot zones */}
-            <BlindSpotZones />
-        </group>
-    );
-}
+// Inside useThreeScene.js _buildTruck():
+const loader = new GLTFLoader();
+loader.load('/models/truck.glb', (gltf) => {
+    scene.add(gltf.scene);
+});
 ```
 
 ### WebSocket Message Handling
@@ -207,29 +215,31 @@ function processDetectionMessage(message) {
 
 ### Local Network Setup
 
-For deployment across multiple devices:
+> **Kafka port reminder**: Port **9092** is the internal Docker listener (`kafka:9092`) — only reachable inside Docker containers. Port **29092** is the host listener (`localhost:29092`) — use this for any service running natively on the host machine.
 
-1. **Configure Kafka** (in `backend_Python/docker-compose.yml`):
+For multi-machine deployment:
+
+1. **Configure Kafka** (`backend_Python/docker-compose.yml`) — expose port 29092 and advertise the host IP:
 ```yaml
 kafka:
   ports:
-    - "9092:9092"  # Expose Kafka port
+    - "9092:9092"
+    - "29092:29092"
   environment:
-    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://YOUR_IP:9092
+    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://YOUR_HOST_IP:29092
 ```
 
-2. **Configure Node.js Backend** (`Dashboard_Service/backend_Kafka/kafka_config.js`):
+2. **Configure Node.js Bridge** (`Dashboard_Service/backend_Kafka/kafka_config.js`):
 ```javascript
 const kafkaConfig = {
     clientId: 'safedetect-node',
-    brokers: ['YOUR_IP:9092'],  // Use actual IP instead of localhost
+    brokers: ['YOUR_HOST_IP:29092'],  // host listener port
     groupId: 'node-backend-group'
 };
 ```
 
 3. **Update React App** (`Dashboard_Service/src/services/WebSocketService.js`):
 ```javascript
-// Use actual IP address instead of localhost
 const wsService = new WebSocketService('ws://192.168.1.100:8081');
 ```
 

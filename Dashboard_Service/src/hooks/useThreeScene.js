@@ -204,7 +204,7 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setClearColor(0x080808, 1);
+    renderer.setClearColor(0xf0f0f0, 1);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -213,7 +213,7 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
 
     // Scene
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x080808, 0.025);
+    scene.fog = new THREE.FogExp2(0xf0f0f0, 0.018);
     sceneRef.current = scene;
 
     // Camera
@@ -221,8 +221,8 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
     cameraRef.current = camera;
 
     // Lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
     sun.position.set(8, 14, 6);
     sun.castShadow = true;
     sun.shadow.camera.near = 0.5;
@@ -238,16 +238,16 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
     // Ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(50, 50),
-      new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0xe4e4e4, roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
     // Grid
-    const grid = new THREE.GridHelper(50, 50, 0x1c1c1c, 0x161616);
+    const grid = new THREE.GridHelper(50, 50, 0xbbbbbb, 0xcccccc);
     grid.material.transparent = true;
-    grid.material.opacity = 0.9;
+    grid.material.opacity = 0.8;
     scene.add(grid);
 
     // Zones
@@ -383,14 +383,14 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
         z.edgeMat.color  = new THREE.Color(0xcc2222);
         z.edgeMat.opacity = 0.85;
       } else if (isActive) {
-        z.fillMat.color.setHex(0x555555);
-        z.fillMat.opacity = 0.04;
-        z.edgeMat.color  = new THREE.Color(0x555555);
-        z.edgeMat.opacity = 0.30;
+        z.fillMat.color.setHex(0x333333);
+        z.fillMat.opacity = 0.06;
+        z.edgeMat.color  = new THREE.Color(0x333333);
+        z.edgeMat.opacity = 0.40;
       } else {
         z.fillMat.opacity = 0;
-        z.edgeMat.opacity = z.blind ? 0.12 : 0.06;
-        z.edgeMat.color  = new THREE.Color(z.blind ? 0x331111 : 0x282828);
+        z.edgeMat.opacity = z.blind ? 0.25 : 0.18;
+        z.edgeMat.color  = new THREE.Color(z.blind ? 0xcc4444 : 0x999999);
       }
     });
 
