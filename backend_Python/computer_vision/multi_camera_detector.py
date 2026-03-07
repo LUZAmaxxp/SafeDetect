@@ -95,20 +95,13 @@ class MultiCameraDetector:
         x1, y1, x2, y2 = bbox
         x_center = (x1 + x2) / 2 / frame_width
         y_center = (y1 + y2) / 2 / frame_height
+        # Bbox width relative to frame — larger value means object is closer to camera
+        depth_proxy = (x2 - x1) / frame_width
 
-        # Convert to world coordinates (meters)
-        world_x = x_center * POSITION_SCALE["x"]
-        world_y = y_center * POSITION_SCALE["y"]
-
-        # Set Z coordinate based on camera zone for better 3D positioning
-        if zone == "left":
-            world_z = 4.0  # Behind truck (negative Z)
-        elif zone == "right":
-            world_z = -5.0  # Behind truck (negative Z)
-        elif zone == "rear":
-            world_z = 0  # Further behind truck
-        else:
-            world_z = 0  # Default
+        # Convert to world coordinates using shared POSITION_SCALE
+        world_x = x_center    * POSITION_SCALE["x"]   # 0 → 1.5
+        world_y = y_center    * POSITION_SCALE["y"]   # 0 → 1.0
+        world_z = depth_proxy * POSITION_SCALE["z"]   # 0 → ~1.0 (real depth)
 
         return {"x": world_x, "y": world_y, "z": world_z, "zone": zone}
 

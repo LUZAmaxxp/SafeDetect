@@ -1,0 +1,418 @@
+{
+  "task": "replace_detection_spheres_with_realistic_glb_icons",
+  "project": "SafeDetect",
+  "version": "3.1",
+  "approach": "Load real, textured .glb models using @react-three/drei useGLTF hook. All models are free and served uncompressed from public/models/.",
+
+  "context": {
+    "framework": "@react-three/fiber 8 + Three.js r159 + @react-three/drei",
+    "current_behavior": "Each detected object is rendered as a plain coloured sphere at position {x, y, z}.",
+    "desired_behavior": "Replace every sphere with a real textured 3D model loaded from a .glb file.",
+    "coordinate_system": {
+      "x": "negative = driver-left, positive = driver-right",
+      "y": "vertical (up)",
+      "z": "negative = forward"
+    },
+    "detection_data_shape": {
+      "object": "\"person\" | \"car\" | \"motorcycle\"",
+      "confidence": "number 0-1",
+      "camera_zone": "\"left\" | \"right\" | \"rear\"",
+      "position": { "x": "number", "y": "number", "z": "number" }
+    }
+  },
+
+  "step_1_download_models": {
+    "description": "Download these exact free models BEFORE writing any code. Place all .glb files in Dashboard_Service/public/models/",
+    "models": [
+      {
+        "id": "person",
+        "name": "Walking Man (Mixamo character)",
+        "source": "mixamo.com",
+        "instructions": [
+          "1. Go to https://www.mixamo.com and sign in (free Adobe account)",
+          "2. In the Characters tab, select 'Y Bot' (clean, lightweight)",
+          "3. In the Animations tab, search for 'Walking' and select it",
+          "4. Click Download → Format: FBX for Unity → Skin: With Skin → Download",
+          "5. Open Blender (free: blender.org). File → Import → FBX. Select the downloaded file.",
+          "6. File → Export → glTF 2.0. Settings: Format=GLB, check 'Include: Selected Objects', check 'Geometry: Apply Modifiers', check 'Animation: NLA Strips'. Save as person.glb",
+          "7. Place person.glb in Dashboard_Service/public/models/"
+        ],
+        "alternative_if_no_blender": "Download directly from https://github.com/mrdoob/three.js/blob/dev/examples/models/gltf/Soldier.glb — this is the official Three.js soldier model, CC0, already GLB with walk animation. Copy as-is to public/models/person.glb",
+        "alternative_url": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb",
+        "animation_clip_name": "Walk",
+        "target_filename": "public/models/person.glb"
+      },
+      {
+        "id": "car",
+        "name": "Stylised Low Poly Car (CC0)",
+        "source": "sketchfab.com",
+        "url": "https://sketchfab.com/3d-models/stylised-low-poly-car-d15c4fde6f454f91b70c7737b04fc804",
+        "license": "CC0 — no attribution required",
+        "author": "Poly Elina (@poly_elina)",
+        "instructions": [
+          "1. Go to the URL above and click 'Download 3D Model'",
+          "2. Select format: GLTF — this gives you a .glb directly",
+          "3. Place car.glb in Dashboard_Service/public/models/"
+        ],
+        "alternative": "Use the Three.js official car model at https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/ferrari.glb",
+        "target_filename": "public/models/car.glb"
+      },
+      {
+        "id": "motorcycle",
+        "name": "Low-Poly Motorcycle (CC0 / free use)",
+        "source": "sketchfab.com",
+        "url": "https://sketchfab.com/3d-models/low-poly-motorcycle-2-9e79295e99654e2a9fa930b5139a7d84",
+        "license": "Free for games and projects",
+        "author": "Sidra (@Sidramax)",
+        "instructions": [
+          "1. Go to the URL above and click Download",
+          "2. Select GLTF format. If only FBX/OBJ is available:",
+          "   a. Open Blender → File → Import → FBX/OBJ",
+          "   b. File → Export → glTF 2.0 → Format: GLB → Save as motorcycle.glb",
+          "3. Place motorcycle.glb in Dashboard_Service/public/models/"
+        ],
+        "alternative": "Kenney.nl vehicle pack (CC0): https://kenney.nl/assets/car-kit — includes motorcycle variant, already optimised",
+        "target_filename": "public/models/motorcycle.glb"
+      }
+    ]
+  },
+
+  "step_2_install_dependencies": {
+    "description": "Install the one new package needed. Nothing else required.",
+    "commands": [
+      "npm install @react-three/drei"
+    ],
+    "note": "@react-three/fiber and three are assumed to already be installed in the project."
+  },
+
+  "step_3_create_files": {
+    "files_to_create": [
+      {
+        "path": "Dashboard_Service/src/components/DetectionIcon.jsx",
+        "full_implementation": {
+          "imports": [
+            "import React, { useRef, useEffect, Suspense } from 'react'",
+            "import { useGLTF, useAnimations } from '@react-three/drei'",
+            "import { useFrame } from '@react-three/fiber'",
+            "import * as THREE from 'three'"
+          ],
+
+          "PersonIcon_component": {
+            "description": "Loads the walking human GLB. Plays Walk animation on loop. Tinted yellow with accent emissive glow. Pulses faster on high confidence.",
+            "props": ["position: [x,y,z]", "color?: string = '#FFD700'", "confidence?: number = 0.5"],
+            "implementation": "const PersonIcon = ({ position, color = '#FFD700', confidence = 0.5 }) => {
+  const group = useRef()
+  const { scene, animations } = useGLTF('/models/person.glb')
+  const { actions } = useAnimations(animations, group)
+  const clone = React.useMemo(() => scene.clone(true), [scene])
+
+  useEffect(() => {
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true
+        child.material = child.material.clone()
+        child.material.emissive = new THREE.Color(color)
+        child.material.emissiveIntensity = 0.15 + confidence * 0.3
+      }
+    })
+    const walkAction = actions['Walk'] || actions['mixamo.com'] || Object.values(actions)[0]
+    if (walkAction) { walkAction.reset().fadeIn(0.3).play() }
+    return () => walkAction?.fadeOut(0.3)
+  }, [clone, actions, color, confidence])
+
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const t = clock.elapsedTime
+    group.current.position.y = position[1] + Math.sin(t * 1.1) * 0.04
+    if (confidence > 0.8) {
+      clone.traverse(child => {
+        if (child.isMesh) child.material.emissiveIntensity = 0.3 + Math.abs(Math.sin(t * 4)) * 0.6
+      })
+    }
+  })
+
+  return (
+    <group ref={group} position={position} dispose={null}>
+      <primitive object={clone} scale={[0.012, 0.012, 0.012]} rotation={[0, Math.PI, 0]} />
+    </group>
+  )
+}
+useGLTF.preload('/models/person.glb')
+"
+          },
+
+          "CarIcon_component": {
+            "description": "Loads car GLB. Applies green PBR paint override on body panels. Wheels rotate at idle speed.",
+            "props": ["position: [x,y,z]", "color?: string = '#00FF88'", "confidence?: number = 0.5"],
+            "implementation": "
+const CarIcon = ({ position, color = '#00FF88', confidence = 0.5 }) => {
+  const group = useRef()
+  const { scene } = useGLTF('/models/car.glb')
+  const clone = React.useMemo(() => scene.clone(true), [scene])
+  const wheelRefs = useRef([])
+
+  useEffect(() => {
+    wheelRefs.current = []
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true
+        child.material = child.material.clone()
+        if (!child.name.toLowerCase().includes('wheel') && !child.name.toLowerCase().includes('tyre')) {
+          child.material.color = new THREE.Color(color)
+          child.material.emissive = new THREE.Color(color)
+          child.material.emissiveIntensity = 0.1 + confidence * 0.2
+          child.material.roughness = 0.2
+          child.material.metalness = 0.8
+        }
+      }
+      if (child.name.toLowerCase().includes('wheel') || child.name.toLowerCase().includes('tyre')) {
+        wheelRefs.current.push(child)
+      }
+    })
+  }, [clone, color, confidence])
+
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const t = clock.elapsedTime
+    group.current.position.y = position[1] + Math.sin(t * 0.8) * 0.025
+    wheelRefs.current.forEach(w => { w.rotation.x += 0.04 })
+    if (confidence > 0.8) {
+      clone.traverse(child => {
+        if (child.isMesh && !child.name.toLowerCase().includes('wheel')) {
+          child.material.emissiveIntensity = 0.2 + Math.abs(Math.sin(t * 3)) * 0.5
+        }
+      })
+    }
+  })
+
+  return (
+    <group ref={group} position={position} dispose={null}>
+      <primitive object={clone} scale={[0.8, 0.8, 0.8]} />
+    </group>
+  )
+}
+useGLTF.preload('/models/car.glb')
+"
+          },
+
+          "MotorcycleIcon_component": {
+            "description": "Loads motorcycle GLB. Applies orange accent paint. Slight lean animation for visual interest.",
+            "props": ["position: [x,y,z]", "color?: string = '#FF8C00'", "confidence?: number = 0.5"],
+            "implementation": "
+const MotorcycleIcon = ({ position, color = '#FF8C00', confidence = 0.5 }) => {
+  const group = useRef()
+  const { scene } = useGLTF('/models/motorcycle.glb')
+  const clone = React.useMemo(() => scene.clone(true), [scene])
+
+  useEffect(() => {
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true
+        child.material = child.material.clone()
+        if (!child.name.toLowerCase().includes('wheel') && !child.name.toLowerCase().includes('tyre')) {
+          child.material.color = new THREE.Color(color)
+          child.material.emissive = new THREE.Color(color)
+          child.material.emissiveIntensity = 0.15 + confidence * 0.25
+          child.material.roughness = 0.25
+          child.material.metalness = 0.7
+        }
+      }
+    })
+  }, [clone, color, confidence])
+
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const t = clock.elapsedTime
+    group.current.position.y = position[1] + Math.sin(t * 1.3) * 0.035
+    group.current.rotation.z = Math.sin(t * 0.7) * 0.04
+    if (confidence > 0.8) {
+      clone.traverse(child => {
+        if (child.isMesh) child.material.emissiveIntensity = 0.2 + Math.abs(Math.sin(t * 3.5)) * 0.55
+      })
+    }
+  })
+
+  return (
+    <group ref={group} position={position} dispose={null}>
+      <primitive object={clone} scale={[0.6, 0.6, 0.6]} rotation={[0, Math.PI / 2, 0]} />
+    </group>
+  )
+}
+useGLTF.preload('/models/motorcycle.glb')
+"
+          },
+
+          "LoadingFallback_component": {
+            "description": "Shown via Suspense while the GLB file is still downloading. Keeps the dashboard usable.",
+            "implementation": "
+const LoadingFallback = ({ position, color }) => {
+  const mesh = useRef()
+  useFrame(({ clock }) => {
+    if (mesh.current) mesh.current.rotation.y = clock.elapsedTime * 2
+  })
+  return (
+    <mesh ref={mesh} position={position}>
+      <octahedronGeometry args={[0.25]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} wireframe />
+    </mesh>
+  )
+}
+"
+          },
+
+          "DetectionIcon_dispatcher": {
+            "description": "The ONLY component imported by TruckScene.jsx. Wraps each icon in Suspense with a spinner fallback.",
+            "zone_to_world_position": {
+              "left":  [-2.5, 0, 0],
+              "right": [ 2.5, 0, 0],
+              "rear":  [ 0,   0, 3]
+            },
+            "implementation": "
+const COLOR_MAP = { person: '#FFD700', car: '#00FF88', motorcycle: '#FF8C00' }
+
+const DetectionIcon = ({ detection }) => {
+  const { object, camera_zone, confidence, position: detPos } = detection
+
+  const ZONE_OFFSETS = { left: [-2.5, 0, 0], right: [2.5, 0, 0], rear: [0, 0, 3] }
+  const offset = ZONE_OFFSETS[camera_zone] || [0, 0, 0]
+  const worldPos = detPos
+    ? [detPos.x, detPos.y, detPos.z]
+    : offset
+
+  const color = COLOR_MAP[object] || '#ffffff'
+  const fallback = <LoadingFallback position={worldPos} color={color} />
+
+  return (
+    <Suspense fallback={fallback}>
+      {object === 'person'     && <PersonIcon     position={worldPos} color={color} confidence={confidence} />}
+      {object === 'car'        && <CarIcon        position={worldPos} color={color} confidence={confidence} />}
+      {object === 'motorcycle' && <MotorcycleIcon position={worldPos} color={color} confidence={confidence} />}
+    </Suspense>
+  )
+}
+
+export default DetectionIcon
+"
+          }
+        }
+      }
+    ],
+    "files_to_modify": [
+      {
+        "path": "Dashboard_Service/src/components/TruckScene.jsx",
+        "changes": [
+          "Add import: import DetectionIcon from './DetectionIcon'",
+          "In the detection render loop, replace the sphere block with: detections.map((det, i) => <DetectionIcon key={i} detection={det} />)",
+          "Add <Suspense fallback={null}> wrapper around the detections map if not already present"
+        ]
+      }
+    ]
+  },
+
+  "step_4_performance_optimizations": {
+    "description": "Apply these for a smoother experience on your PC now, and they will also help later on Pi",
+    "optimizations": [
+      {
+        "id": "useGLTF_preload",
+        "what": "Call useGLTF.preload() for each model path at module level (outside components)",
+        "why": "Starts fetching the GLB while React is still mounting, eliminating waterfall loading"
+      },
+      {
+        "id": "scene_clone",
+        "what": "Use React.useMemo(() => scene.clone(true), [scene]) instead of using scene directly",
+        "why": "Allows multiple instances of the same model (e.g. two cars detected simultaneously) without reloading the asset"
+      },
+      {
+        "id": "antialias_off",
+        "what": "Set antialias: false on the Canvas gl prop",
+        "why": "Saves GPU resources; detection icons are small enough that aliasing is negligible"
+      },
+      {
+        "id": "pixel_ratio_cap",
+        "what": "Set dpr={[1, 1.5]} on Canvas",
+        "why": "Caps devicePixelRatio to 1.5 to reduce GPU load"
+      },
+      {
+        "id": "shadow_map_size",
+        "what": "Set shadow map size to 512x512",
+        "code": "<directionalLight shadow-mapSize={[512, 512]} castShadow />",
+        "why": "Keeps shadow quality reasonable without heavy memory cost"
+      },
+      {
+        "id": "frameloop_demand",
+        "what": "Consider frameloop='demand' on Canvas if detections are infrequent",
+        "why": "Only re-renders when state changes — saves CPU/GPU when no objects are in blind spots",
+        "tradeoff": "Animations stop when no detections present; use frameloop='always' if you want idle animations"
+      },
+      {
+        "id": "dispose_on_unmount",
+        "what": "In each icon component, return a cleanup function that calls useGLTF.clear('/models/X.glb') on unmount",
+        "why": "Prevents GPU memory leak over long sessions"
+      }
+    ]
+  },
+
+  "step_5_lighting": {
+    "description": "Minimal lighting setup that makes GLB PBR materials look good",
+    "lights": [
+      { "type": "ambientLight",     "intensity": 2.5, "color": "#1a2a3a" },
+      { "type": "directionalLight", "intensity": 2.0, "position": [5, 10, 5], "castShadow": true, "shadow-mapSize": [512, 512] },
+      { "type": "pointLight",       "intensity": 1.5, "position": [0, 3, 0], "color": "#ffffff" }
+    ],
+    "env_map": {
+      "use": true,
+      "component": "<Environment preset='warehouse' background={false} />",
+      "why": "Warehouse HDRI gives realistic metal and glass reflections on PBR materials at very low cost",
+      "import": "import { Environment } from '@react-three/drei'"
+    }
+  },
+
+  "step_6_scale_calibration": {
+    "description": "GLB models from different sources have wildly different scale units. Calibrate each one after loading.",
+    "method": "Start with the scale values below, then visually adjust in the browser. The truck model bounding box is approximately 10 units long.",
+    "recommended_scales": {
+      "person":     { "uniform_scale": 0.012, "note": "Mixamo/Three.js Soldier is ~170 units tall in native scale" },
+      "car":        { "uniform_scale": 0.8,   "note": "Sketchfab low-poly car is typically ~2 units long natively" },
+      "motorcycle": { "uniform_scale": 0.6,   "note": "Adjust so motorcycle is roughly 60% the length of the car" }
+    },
+    "debug_tip": "Temporarily add <axesHelper args={[2]} /> inside the group to see model origin and scale"
+  },
+
+  "file_structure_result": {
+    "description": "Final file layout after completing all steps",
+    "layout": {
+      "Dashboard_Service/": {
+        "public/": {
+          "models/": {
+            "person.glb":     "Mixamo Y Bot with walk animation",
+            "car.glb":        "Sketchfab CC0 low-poly car",
+            "motorcycle.glb": "Sketchfab free motorcycle"
+          }
+        },
+        "src/": {
+          "components/": {
+            "DetectionIcon.jsx": "NEW — PersonIcon + CarIcon + MotorcycleIcon + DetectionIcon dispatcher",
+            "TruckScene.jsx":    "MODIFIED — replace sphere loop with <DetectionIcon detection={det} />"
+          }
+        }
+      }
+    }
+  },
+
+  "constraints": [
+    "Use scene.clone(true) — never use the raw scene object directly or multi-instance rendering will break",
+    "Always wrap GLB-loading components in <Suspense> — GLB loading is async and will throw without it",
+    "Call useGLTF.preload() at module level for each model to avoid loading waterfalls",
+    "Do NOT modify WebSocket, Kafka consumer, or detection state logic",
+    "Color-coding must be preserved: person=#FFD700, car=#00FF88, motorcycle=#FF8C00",
+    "Confidence > 0.8 must trigger emissive pulse at 3-4 Hz on the model materials",
+    "No external 3D libraries beyond @react-three/drei and @react-three/fiber"
+  ],
+
+  "troubleshooting": {
+    "model_not_visible":         "Check scale — Mixamo models are often 100x too large. Start with scale={[0.01, 0.01, 0.01]}",
+    "multiple_instances_broken": "You forgot scene.clone(true) — raw scene is shared, cloning is mandatory for multiple detections",
+    "animation_not_playing":     "Log Object.keys(actions) to see the exact animation clip names from your specific GLB file",
+    "model_origin_offset":       "Some GLBs have their origin at wheel level or nose. Adjust the position prop or add an inner group with a y-offset."
+  }
+}

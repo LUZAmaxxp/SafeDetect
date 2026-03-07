@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader }    from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader }   from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const ZONE_BASES = {
   front: [0,  0, -5.5],
@@ -7,6 +10,51 @@ const ZONE_BASES = {
   left:  [-3.6, 0, 0],
   right: [ 3.6, 0, 0],
 };
+
+/**
+ * Maps detected object position to a world-space coordinate that sits INSIDE
+ * the corresponding zone floor rectangle.
+ *
+ * Backend values (from shared/config.py POSITION_SCALE):
+ *   position.x  = (bbox_centre_x / frame_w) * 1.5  → [0, 1.5], centre ≈ 0.75
+ *   position.z  = (bbox_width    / frame_w) * 1.0  → [0, 1],   larger = closer to camera
+ *
+ * Zone floor world bounds (derived from ZONE_DEFS center ± half-size):
+ *   rear  : X [-1.8, 1.8],  Z [3.8,  7.0]
+ *   front : X [-1.8, 1.8],  Z [-7.0, -3.8]
+ *   left  : X [-4.8, -2.2], Z [-3.2,  3.2]
+ *   right : X [ 2.2,  4.8], Z [-3.2,  3.2]
+ */
+function detectionToWorldPos(det) {
+  const pos = det.position;
+
+  // Normalise the backend values to [0, 1]
+  const normH = pos ? Math.max(0, Math.min(1, pos.x / 1.5))        : 0.5; // horizontal in frame
+  const normD = pos ? Math.max(0, Math.min(1, pos.z / 1.0))        : 0.5; // depth (1 = closest)
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const flippedH = 1 - normH; // invert horizontal axis
+
+  switch (det.camera_zone) {
+    case 'rear':
+      return [ lerp(1.8, -1.8, flippedH), 0, lerp(7.0, 3.8, normD) ];
+
+    case 'front':
+      return [ lerp(-1.8, 1.8, flippedH), 0, lerp(-7.0, -3.8, normD) ];
+
+    case 'left':
+      return [ lerp(-4.8, -2.2, flippedH), 0, lerp(-3.5, 3.5, normD) ];
+
+    case 'right':
+      return [ lerp(2.2, 4.8, flippedH), 0, lerp(-3.5, 3.5, normD) ];
+
+    default: {
+      const base = ZONE_BASES[det.camera_zone] || ZONE_BASES.front;
+      return [base[0], 0, base[2]];
+    }
+  }
+}
 
 const ZONE_DEFS = {
   rear:  { size: [4.2, 0.02, 3.8], pos: [0, 0.02,  5.4], blind: true },
@@ -21,6 +69,32 @@ const CAMERA_PRESETS = {
   left:    { theta: 4.71, phi: 0.85, radius: 14 },
   right:   { theta: 1.57, phi: 0.85, radius: 14 },
 };
+
+// Detection icon model paths (files in public/models/)
+const MODEL_PATHS = {
+  person:     '/models/Soldier.glb',
+  car:        '/models/stylised_low_poly_car.glb',
+  motorcycle: '/models/low-poly_motorcycle__2.glb',
+};
+
+// Target world-space size for each model type.
+// The truck chassis is 7.8 units long × 2.3 wide, so these values are
+// intentionally small so detection icons read as "objects near a large truck".
+const TARGET_SIZES = {
+  person:     0.4,   // pedestrian — roughly shin-height of the truck cab
+  car:        3.2,   // compact car — noticeably smaller than the truck width
+  motorcycle: 2.8,   // motorcycle — between person and car
+};
+
+// Brand colours: person=gold, car=green, motorcycle=orange
+const COLOR_MAP = {
+  person:     new THREE.Color(0xFFD700),
+  car:        new THREE.Color(0x00FF88),
+  motorcycle: new THREE.Color(0xFF8C00),
+};
+
+// Mesh name pattern used to identify wheel nodes (auto-rotation)
+const WHEEL_PATTERN = /wheel|tyre|tire|roue/i;
 
 // Material shorthand
 const M = (hex, rough = 0.55, met = 0.45) =>
@@ -191,11 +265,17 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
   const rendererRef = useRef(null);
   const cameraRef   = useRef(null);
   const orbitRef    = useRef({ theta: 0.6, phi: 1.0, r: 18, drag: false, lastX: 0, lastY: 0 });
-  const blipsRef    = useRef([]);
-  const zoneObjRef  = useRef(null);
-  const rafRef      = useRef(null);
-  const clockRef    = useRef(new THREE.Clock());
-  const truckRef    = useRef(null);
+  const blipsRef     = useRef([]);  // [{ group, mixer, emissiveMeshes, pulse }]
+  const zoneObjRef   = useRef(null);
+  const rafRef       = useRef(null);
+  const clockRef     = useRef(new THREE.Clock());
+  const truckRef     = useRef(null);
+  const modelsRef          = useRef({});   // preloaded GLTF objects keyed by object type
+  const mixersRef          = useRef([]);   // active AnimationMixers for person walk
+  const wheelMeshRef       = useRef([]);   // [{ mesh, speed }] manually-rotated wheel nodes
+  const prevTimeRef        = useRef(0);    // last-frame elapsed time for delta calculation
+  const latestDetectionsRef = useRef([]); // always mirrors latest detections prop
+  const rebuildBlipsRef     = useRef(null); // stable ref to the blip-builder function
 
   // Initial scene setup
   useEffect(() => {
@@ -235,6 +315,11 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
     fill.position.set(-6, 6, -8);
     scene.add(fill);
 
+    // Centre point light — improves PBR quality on loaded GLB detection icons
+    const ptLight = new THREE.PointLight(0xffffff, 1.5, 20);
+    ptLight.position.set(0, 3, 0);
+    scene.add(ptLight);
+
     // Ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(50, 50),
@@ -259,6 +344,132 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
     const truck = buildTruck();
     truckRef.current = truck;
     scene.add(truck);
+
+    // Preload GLB detection-icon models asynchronously.
+    // Detections that arrive before a model is ready show a wireframe fallback.
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+    Object.entries(MODEL_PATHS).forEach(([type, path]) => {
+      gltfLoader.load(
+        path,
+        gltf => {
+          // Auto-scale: normalise so the largest axis equals TARGET_SIZES[type].
+          // Measure the unscaled scene to derive the normalisation factor only.
+          const box = new THREE.Box3().setFromObject(gltf.scene);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const targetSize = TARGET_SIZES[type] || 1.5;
+          gltf._normalizeScale = targetSize / maxDim;
+          modelsRef.current[type] = gltf;
+          console.info(
+            `[SafeDetect] model ready: ${type}  ` +
+            `native max=${maxDim.toFixed(2)}  scale=${gltf._normalizeScale.toFixed(4)}`
+          );
+          // Re-place any detections that arrived while this model was still loading
+          if (latestDetectionsRef.current.length > 0) {
+            rebuildBlipsRef.current?.(latestDetectionsRef.current);
+          }
+        },
+        undefined,
+        err => { console.warn(`[SafeDetect] model load failed: ${type}`, err); }
+      );
+    });
+
+    // Stable blip-builder — called from both the detections effect and model-load callbacks.
+    // Reads the latest scene / zone / model refs so it always has current data.
+    const rebuildBlips = (dets) => {
+      const scn   = sceneRef.current;
+      const zones = zoneObjRef.current;
+      if (!scn || !zones) return;
+
+      // Tear down previous icons
+      blipsRef.current.forEach(b => {
+        scn.remove(b.group);
+        if (b.mixer) b.mixer.stopAllAction();
+        b.group.traverse(child => {
+          if (child.isMesh && child.material?._cloned) child.material.dispose();
+        });
+      });
+      blipsRef.current     = [];
+      mixersRef.current    = [];
+      wheelMeshRef.current = [];
+
+      (dets || []).forEach((det, i) => {
+        const [px, , pz] = detectionToWorldPos(det);
+        const color = (COLOR_MAP[det.object] || new THREE.Color(0xffffff)).clone();
+        const gltf  = modelsRef.current[det.object];
+
+        if (!gltf) {
+          // Wireframe spinner shown while the GLB is still downloading
+          const mat  = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, wireframe: true });
+          mat._cloned = true;
+          const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), mat);
+          mesh.position.set(px, 0.5, pz);
+          const grp = new THREE.Group();
+          grp.add(mesh);
+          scn.add(grp);
+          blipsRef.current.push({ group: grp, mixer: null, emissiveMeshes: [mesh], pulse: false });
+          return;
+        }
+
+        const s      = gltf._normalizeScale || 1;
+        const cloned = det.object === 'person'
+          ? cloneSkinned(gltf.scene)
+          : gltf.scene.clone(true);
+
+        cloned.scale.set(s, s, s);
+        if (det.object === 'motorcycle') cloned.rotation.y = Math.PI / 2;
+
+        // Floor the model: measure the scaled clone's bounding box and lift it
+        // so its minimum y sits exactly on the ground plane (y = 0).
+        cloned.updateWorldMatrix(true, true);
+        const scaledBox = new THREE.Box3().setFromObject(cloned);
+        const yFloor = isFinite(scaledBox.min.y) ? -scaledBox.min.y : 0;
+        cloned.position.set(px, yFloor, pz);
+        cloned.castShadow = true;
+
+        const emissiveMeshes = [];
+        cloned.traverse(child => {
+          if (!child.isMesh) return;
+          child.castShadow = true;
+          child.material   = child.material.clone();
+          child.material._cloned = true;
+          const isWheel = WHEEL_PATTERN.test(child.name);
+          if (!isWheel) {
+            child.material.emissive          = color.clone();
+            child.material.emissiveIntensity = 0.15 + (det.confidence || 0.5) * 0.3;
+            if (det.object === 'car' || det.object === 'motorcycle') {
+              child.material.color     = color.clone();
+              child.material.roughness = Math.min(child.material.roughness ?? 0.5, 0.3);
+              child.material.metalness = Math.max(child.material.metalness ?? 0,   0.7);
+            }
+            emissiveMeshes.push(child);
+          } else {
+            wheelMeshRef.current.push({ mesh: child, speed: 3 });
+          }
+        });
+
+        let mixer = null;
+        if (det.object === 'person' && gltf.animations?.length) {
+          mixer = new THREE.AnimationMixer(cloned);
+          const clip = THREE.AnimationClip.findByName(gltf.animations, 'Walk') || gltf.animations[0];
+          if (clip) mixer.clipAction(clip).reset().play();
+          mixersRef.current.push(mixer);
+        }
+
+        scn.add(cloned);
+        blipsRef.current.push({
+          group: cloned,
+          mixer,
+          emissiveMeshes,
+          pulse: (det.confidence || 0) > 0.8,
+        });
+      });
+    };
+    rebuildBlipsRef.current = rebuildBlips;
 
     // Orbit controls (manual)
     const orbit = orbitRef.current;
@@ -309,10 +520,26 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
     // Render loop
     const animate = () => {
       rafRef.current = requestAnimationFrame(animate);
-      const t = clockRef.current.getElapsedTime();
+      const t     = clockRef.current.getElapsedTime();
+      const delta = t - prevTimeRef.current;
+      prevTimeRef.current = t;
 
       // Subtle truck float
       if (truckRef.current) truckRef.current.position.y = Math.sin(t * 0.35) * 0.012;
+
+      // Advance person walk animations
+      mixersRef.current.forEach(mx => mx.update(delta));
+
+      // Rotate car / motorcycle wheel nodes
+      wheelMeshRef.current.forEach(({ mesh, speed }) => { mesh.rotation.z += delta * speed; });
+
+      // Emissive pulse for high-confidence detections (confidence > 0.8)
+      blipsRef.current.forEach(b => {
+        if (b.pulse && b.emissiveMeshes) {
+          const intensity = 0.3 + Math.abs(Math.sin(t * 3.5)) * 0.6;
+          b.emissiveMeshes.forEach(m => { m.material.emissiveIntensity = intensity; });
+        }
+      });
 
       // Orbit camera
       const o = orbitRef.current;
@@ -368,68 +595,33 @@ export default function useThreeScene(canvasRef, detections, cameraView) {
 
   // Update zones + blips when detections change
   useEffect(() => {
-    const scene = sceneRef.current;
+    latestDetectionsRef.current = detections;
+
     const zones = zoneObjRef.current;
-    if (!scene || !zones) return;
+    if (!zones) return;
 
-    // Active zones
+    // Update zone floor/edge highlights
     const activeZones = new Set(detections.map(d => d.camera_zone));
-
     Object.entries(zones).forEach(([name, z]) => {
       const isActive = activeZones.has(name);
       if (isActive && z.blind) {
         z.fillMat.color.setHex(0xcc2222);
         z.fillMat.opacity = 0.10;
-        z.edgeMat.color  = new THREE.Color(0xcc2222);
+        z.edgeMat.color   = new THREE.Color(0xcc2222);
         z.edgeMat.opacity = 0.85;
       } else if (isActive) {
         z.fillMat.color.setHex(0x333333);
         z.fillMat.opacity = 0.06;
-        z.edgeMat.color  = new THREE.Color(0x333333);
+        z.edgeMat.color   = new THREE.Color(0x333333);
         z.edgeMat.opacity = 0.40;
       } else {
         z.fillMat.opacity = 0;
         z.edgeMat.opacity = z.blind ? 0.25 : 0.18;
-        z.edgeMat.color  = new THREE.Color(z.blind ? 0xcc4444 : 0x999999);
+        z.edgeMat.color   = new THREE.Color(z.blind ? 0xcc4444 : 0x999999);
       }
     });
 
-    // Remove old blips
-    blipsRef.current.forEach(m => {
-      scene.remove(m);
-      m.geometry.dispose();
-      m.material.dispose();
-    });
-    blipsRef.current = [];
-
-    // Add new blips
-    detections.forEach((det, i) => {
-      const base = ZONE_BASES[det.camera_zone] || ZONE_BASES.front;
-      const blind = ['left', 'right', 'rear'].includes(det.camera_zone);
-      const id = i + 1;
-      const jx = Math.sin(id * 6.1) * 0.85;
-      const jz = Math.cos(id * 3.7) * 0.65;
-
-      const color = blind ? 0xcc2222 : 0x555555;
-
-      // Sphere
-      const sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 8, 8),
-        new THREE.MeshBasicMaterial({ color })
-      );
-      sphere.position.set(base[0] + jx, 0.12, base[2] + jz);
-      scene.add(sphere);
-      blipsRef.current.push(sphere);
-
-      // Ring
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.2, 0.26, 16),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.set(base[0] + jx, 0.01, base[2] + jz);
-      scene.add(ring);
-      blipsRef.current.push(ring);
-    });
+    // Rebuild 3D detection icons
+    rebuildBlipsRef.current?.(detections);
   }, [detections]);
 }

@@ -1,0 +1,543 @@
+{
+  "project": "SafeDetect",
+  "version": "1.0",
+  "date": "2026-03-07",
+  "status": "active",
+
+  "overview": {
+    "description": "Real-time blind spot detection system for heavy vehicles (trucks). Three cameras monitor left, right, and rear blind spot zones. Frames are processed by a YOLOv8 model; detections are streamed through Apache Kafka to a Node.js WebSocket bridge and rendered on a React + Three.js dashboard as a live 3D truck model.",
+    "goals": [
+      {
+        "id": "safety",
+        "description": "Alert the driver within 250 ms of an object entering a blind spot zone"
+      },
+      {
+        "id": "reliability",
+        "description": "Maintain detection pipeline uptime >= 99% per driving session"
+      },
+      {
+        "id": "developer_ergonomics",
+        "description": "Full stack starts with a single command: make up"
+      },
+      {
+        "id": "portability",
+        "description": "Runs on x86-64 workstations (dev) and ARM64 (Raspberry Pi 4/5 in production)"
+      }
+    ],
+    "out_of_scope_v1": [
+      "Driver authentication / access control",
+      "Cloud telemetry / data persistence beyond the running session",
+      "Cross-vehicle fleet management",
+      "Lane departure or object tracking over time"
+    ]
+  },
+
+  "architecture": {
+    "pipeline": [
+      "Camera (USB / RTSP)",
+      "cv-service: YOLOv8n inference",
+      "Apache Kafka topic: detections",
+      "ws-bridge: kafkajs consumer",
+      "WebSocket broadcast :8081",
+      "dashboard: React + Three.js"
+    ],
+    "communication": [
+      {
+        "hop": "Camera → cv-service",
+        "protocol": "OpenCV (USB) or RTSP",
+        "format": "raw video frames",
+        "direction": "pull"
+      },
+      {
+        "hop": "cv-service → Kafka",
+        "protocol": "kafka-python",
+        "format": "JSON over PLAINTEXT",
+        "direction": "push"
+      },
+      {
+        "hop": "Kafka → ws-bridge",
+        "protocol": "kafkajs",
+        "format": "JSON",
+        "direction": "pull"
+      },
+      {
+        "hop": "ws-bridge → dashboard",
+        "protocol": "WebSocket (ws)",
+        "format": "JSON",
+        "direction": "push broadcast"
+      },
+      {
+        "hop": "dashboard → ws-bridge",
+        "protocol": "WebSocket (ws)",
+        "format": "JSON",
+        "direction": "push (ping only)"
+      }
+    ]
+  },
+
+  "services": [
+    {
+      "id": "cv-service",
+      "language": "Python 3.11",
+      "entry_point": "python -m computer_vision.multi_camera_detector",
+      "docker_context": "backend_Python/",
+      "base_image": "python:3.11-slim",
+      "ports": [],
+      "required_env_vars": ["KAFKA_HOST", "KAFKA_PORT"],
+      "restart_policy": "unless-stopped",
+      "responsibilities": [
+        "Open up to three camera feeds (USB index, RTSP URL, or video file)",
+        "Run YOLOv8n inference on each unique frame (shared across zones using the same camera source)",
+        "Filter results to COCO classes 0 (person), 2 (car), 3 (motorcycle)",
+        "Classify each detection into a blind spot zone: left, right, or rear",
+        "Attach frame hash (MD5) and per-detection HMAC (SHA-256) for integrity",
+        "Publish detection messages to Kafka topic detections",
+        "Play audio alert (pygame) when a detection is present; degrades gracefully to silent if no audio device"
+      ]
+    },
+    {
+      "id": "kafka",
+      "image": "confluentinc/cp-kafka:7.4.0",
+      "coordination_image": "confluentinc/cp-zookeeper:7.4.0",
+      "topic": "detections",
+      "replication_factor": 1,
+      "default_partitions": 1,
+      "listeners": {
+        "docker_internal": "PLAINTEXT://kafka:9092",
+        "host_facing": "PLAINTEXT_HOST://localhost:29092"
+      },
+      "retention": "7 days (default)"
+    },
+    {
+      "id": "ws-bridge",
+      "language": "Node.js 20",
+      "entry_point": "node server.js",
+      "docker_context": "Dashboard_Service/backend_Kafka/",
+      "base_image": "node:20-slim",
+      "ports": {
+        "websocket": 8081,
+        "http": 8082
+      },
+      "required_env_vars": ["KAFKA_BROKER"],
+      "restart_policy": "unless-stopped",
+      "responsibilities": [
+        "Consume messages from Kafka topic detections, consumer group safedetect-web-consumers",
+        "Normalise Python ({\"type\":\"detections\",...}) and C++ (raw array) Kafka message formats into a uniform WebSocket envelope",
+        "Broadcast normalised messages to all connected WebSocket clients",
+        "Respond to client ping frames with pong",
+        "Expose GET /health endpoint"
+      ]
+    },
+    {
+      "id": "dashboard",
+      "language": "React 18 / JavaScript",
+      "build_tool": "webpack 5",
+      "rendering_library": "Three.js 0.159 via @react-three/fiber 8",
+      "docker_context": "Dashboard_Service/",
+      "production_server": "nginx alpine",
+      "ports": {
+        "production": 80,
+        "dev_server": 8080
+      },
+      "responsibilities": [
+        "Connect to ws-bridge WebSocket (ws://<host>:8081) with auto-reconnect (5 attempts, 3s interval)",
+        "Render a procedural 3D truck model with coloured detection spheres in real time",
+        "Display detection list panel with object type, confidence, zone, and timestamp",
+        "Trigger alert overlay and browser vibration when any detection with a recognised camera_zone is received",
+        "Show real FPS computed from a rolling 1-second message timestamp window",
+        "Allow the user to configure WebSocket server IP at runtime via a settings panel"
+      ]
+    }
+  ],
+
+  "data_model": {
+    "detection_object": {
+      "description": "Emitted by cv-service per detected object, assembled into the Kafka message detections array",
+      "schema": {
+        "object": {
+          "type": "string",
+          "enum": ["car", "motorcycle", "person"],
+          "description": "Human-readable COCO class name"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "YOLOv8 detection confidence"
+        },
+        "bbox": {
+          "type": "array",
+          "items": "number",
+          "length": 4,
+          "format": "[x1, y1, x2, y2]",
+          "description": "Bounding box in pixel coordinates (top-left, bottom-right)"
+        },
+        "class_id": {
+          "type": "integer",
+          "enum": [0, 2, 3],
+          "description": "COCO class index: 0=person, 2=car, 3=motorcycle"
+        },
+        "camera_zone": {
+          "type": "string",
+          "enum": ["left", "right", "rear"],
+          "description": "Zone the detection occurred in"
+        },
+        "position": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number",
+              "description": "World X coordinate in metres (scaled from normalised x-centre)"
+            },
+            "y": {
+              "type": "number",
+              "description": "World Y coordinate in metres (scaled from normalised y-centre)"
+            },
+            "z": {
+              "type": "number",
+              "description": "Proxy depth in metres (derived from bounding box width ratio)"
+            }
+          }
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix epoch seconds (Python time.time()) at detection"
+        },
+        "frame_hash": {
+          "type": "string",
+          "description": "First 16 hex chars of MD5 of the subsampled frame (every 8th pixel)"
+        },
+        "integrity_hmac": {
+          "type": "string",
+          "description": "First 16 hex chars of HMAC-SHA256 of object+confidence+zone+timestamp"
+        }
+      },
+      "example": {
+        "object": "car",
+        "confidence": 0.87,
+        "bbox": [120.5, 88.3, 410.2, 360.1],
+        "class_id": 2,
+        "camera_zone": "left",
+        "position": { "x": 0.415, "y": 0.483, "z": 0.449 },
+        "timestamp": 1741392000.123,
+        "frame_hash": "a3f2c1d4e5b6f7e8",
+        "integrity_hmac": "9a8b7c6d5e4f3a2b"
+      }
+    },
+    "kafka_message_envelope": {
+      "types": [
+        {
+          "type": "detections",
+          "schema": {
+            "type": "string",
+            "timestamp": "number (Unix epoch seconds)",
+            "detections": "array of Detection Objects"
+          }
+        },
+        {
+          "type": "status",
+          "schema": {
+            "type": "string",
+            "timestamp": "number (Unix epoch seconds)",
+            "status": {
+              "cameras": "object keyed by zone: left | right | rear → in_use | not_connected | error",
+              "fps": "number",
+              "inference_device": "string: cpu | cuda"
+            }
+          }
+        }
+      ]
+    },
+    "websocket_messages": {
+      "server_to_client": [
+        {
+          "type": "connection",
+          "description": "Sent once on first connect; includes welcome message string"
+        },
+        {
+          "type": "detections",
+          "description": "Normalised detection envelope forwarded from Kafka"
+        },
+        {
+          "type": "status",
+          "description": "System status forwarded from Kafka"
+        },
+        {
+          "type": "pong",
+          "description": "Response to client ping; includes server timestamp in ms"
+        }
+      ],
+      "client_to_server": [
+        {
+          "type": "ping",
+          "description": "Heartbeat; triggers a pong response"
+        }
+      ]
+    },
+    "position_coordinate_system": {
+      "origin": [0, 0, 0],
+      "axes": {
+        "x": "negative = driver-left, positive = driver-right",
+        "y": "vertical",
+        "z": "negative = forward"
+      },
+      "scaling_formula": {
+        "world_x": "( (x1+x2)/2 / frame_width  ) × POSITION_SCALE_X",
+        "world_y": "( (y1+y2)/2 / frame_height ) × POSITION_SCALE_Y",
+        "world_z": "( (x2-x1)   / frame_width  ) × POSITION_SCALE_Z"
+      },
+      "default_scales": {
+        "POSITION_SCALE_X": 1.5,
+        "POSITION_SCALE_Y": 1.0,
+        "POSITION_SCALE_Z": 1.0
+      }
+    }
+  },
+
+  "message_protocols": {
+    "kafka_producer": {
+      "library": "kafka-python",
+      "acks": "all",
+      "retries": 3,
+      "linger_ms": 5,
+      "value_serializer": "json.dumps(...).encode('utf-8')",
+      "key_serializer": "str.encode or None",
+      "delivery_mode": "synchronous per batch (future.get(timeout=10))"
+    },
+    "kafka_consumer": {
+      "library": "kafkajs",
+      "group_id": "safedetect-web-consumers",
+      "from_beginning": false,
+      "processing": "eachMessage async callback"
+    },
+    "websocket_server": {
+      "library": "ws 8.x",
+      "port": 8081,
+      "message_encoding": "JSON over UTF-8 text frames",
+      "broadcast": "one-to-all; dead clients removed on send error"
+    },
+    "websocket_client": {
+      "reconnect_attempts": 5,
+      "reconnect_interval_ms": 3000,
+      "heartbeat": "ping every reconnect_interval_ms",
+      "url_default": "ws://${window.location.hostname}:8081"
+    }
+  },
+
+  "api": [
+    {
+      "service": "ws-bridge",
+      "method": "GET",
+      "path": "/health",
+      "port": 8082,
+      "description": "Health check endpoint",
+      "response": {
+        "status_code": 200,
+        "body": {
+          "status": "OK",
+          "message": "SafeDetect Web Backend is running",
+          "connectedClients": "integer",
+          "kafkaTopic": "string"
+        }
+      }
+    }
+  ],
+
+  "configuration": {
+    "required_env_vars": [
+      {
+        "name": "KAFKA_HOST",
+        "service": "cv-service",
+        "description": "Kafka broker hostname",
+        "docker_value": "kafka",
+        "native_dev_value": "localhost"
+      },
+      {
+        "name": "KAFKA_PORT",
+        "service": "cv-service",
+        "description": "Kafka broker port",
+        "docker_value": "9092",
+        "native_dev_value": "29092"
+      }
+    ],
+    "optional_env_vars_cv_service": [
+      { "name": "KAFKA_TOPIC",             "default": "detections",        "description": "Kafka topic name" },
+      { "name": "MODEL_PATH",              "default": "yolov8n.pt",         "description": "Path to YOLOv8 weights file" },
+      { "name": "MODEL_CONFIDENCE",        "default": "0.5",                "description": "Minimum detection confidence threshold [0-1]" },
+      { "name": "INFERENCE_SIZE",          "default": "640 (GPU) / 416 (CPU)", "description": "YOLOv8 input resolution in pixels" },
+      { "name": "CAMERA_WIDTH",            "default": "640",                "description": "Camera capture width in pixels" },
+      { "name": "CAMERA_HEIGHT",           "default": "480",                "description": "Camera capture height in pixels" },
+      { "name": "FPS_TARGET",              "default": "15",                 "description": "Target camera capture FPS" },
+      { "name": "LEFT_CAMERA_ID",          "default": "0",                  "description": "Left camera USB device index" },
+      { "name": "RIGHT_CAMERA_ID",         "default": "1",                  "description": "Right camera USB device index" },
+      { "name": "REAR_CAMERA_ID",          "default": "2",                  "description": "Rear camera USB device index" },
+      { "name": "LEFT_CAMERA_SRC",         "default": null,                 "description": "RTSP URL or file path for left camera (overrides LEFT_CAMERA_ID)" },
+      { "name": "RIGHT_CAMERA_SRC",        "default": null,                 "description": "RTSP URL or file path for right camera (overrides RIGHT_CAMERA_ID)" },
+      { "name": "REAR_CAMERA_SRC",         "default": null,                 "description": "RTSP URL or file path for rear camera (overrides REAR_CAMERA_ID)" },
+      { "name": "ALERT_BEEP_FREQUENCY",    "default": "800",                "description": "Alert beep frequency in Hz" },
+      { "name": "ALERT_DURATION",          "default": "0.5",                "description": "Alert beep duration in seconds" },
+      { "name": "DETECTION_SECRET_KEY",    "default": null,                 "description": "HMAC key for detection integrity signing — must be set to a strong value" },
+      { "name": "KAFKA_SECURITY_PROTOCOL", "default": "PLAINTEXT",          "description": "Kafka security: PLAINTEXT | SSL | SASL_PLAINTEXT | SASL_SSL" },
+      { "name": "KAFKA_SASL_MECHANISM",    "default": "PLAIN",              "description": "SASL mechanism when using SASL" },
+      { "name": "KAFKA_SASL_USERNAME",     "default": null,                 "description": "SASL username" },
+      { "name": "KAFKA_SASL_PASSWORD",     "default": null,                 "description": "SASL password" },
+      { "name": "KAFKA_SSL_CAFILE",        "default": null,                 "description": "Path to CA certificate file" },
+      { "name": "KAFKA_SSL_CERTFILE",      "default": null,                 "description": "Path to client certificate file" },
+      { "name": "KAFKA_SSL_KEYFILE",       "default": null,                 "description": "Path to client key file" }
+    ],
+    "optional_env_vars_ws_bridge": [
+      { "name": "KAFKA_BROKER", "default": "localhost:29092", "description": "Full host:port Kafka broker address" },
+      { "name": "KAFKA_TOPIC",  "default": "detections",     "description": "Kafka topic to consume" },
+      { "name": "PORT",         "default": "8082",            "description": "Express HTTP port" }
+    ],
+    "blind_spot_zones": [
+      { "zone": "left",  "x_min": 0.00, "x_max": 0.30, "y_min": 0.20, "y_max": 0.80 },
+      { "zone": "right", "x_min": 0.70, "x_max": 1.00, "y_min": 0.20, "y_max": 0.80 },
+      { "zone": "rear",  "x_min": 0.30, "x_max": 0.70, "y_min": 0.70, "y_max": 1.00 }
+    ],
+    "coco_class_mapping": [
+      { "coco_id": 0, "label": "person",     "dashboard_color": "yellow" },
+      { "coco_id": 2, "label": "car",        "dashboard_color": "green"  },
+      { "coco_id": 3, "label": "motorcycle", "dashboard_color": "orange" }
+    ]
+  },
+
+  "detection_algorithms": {
+    "model": {
+      "name": "YOLOv8n",
+      "variant": "nano (smallest / fastest)",
+      "weights_file": "yolov8n.pt",
+      "onnx_export": "yolov8n.onnx",
+      "dataset": "COCO 80-class (subset: IDs 0, 2, 3 used)",
+      "device_selection": "CUDA if available, else CPU (automatic, logged at startup)"
+    },
+    "frame_deduplication": {
+      "description": "When two or more zones share the same camera source, inference runs once per unique source per cycle",
+      "mechanism": "frame_cache dict maps camera_id to (frame, frame_hash, results) within each detection cycle"
+    },
+    "frame_integrity_hash": {
+      "algorithm": "MD5",
+      "input": "frame[::8, ::8].tobytes() — every 8th row and column sampled",
+      "output": "first 16 hex characters of hexdigest",
+      "purpose": "lightweight frame-change detection; not security-grade"
+    },
+    "per_detection_hmac": {
+      "algorithm": "HMAC-SHA256",
+      "key": "DETECTION_SECRET_KEY environment variable",
+      "message_format": "{object_type}{confidence}{zone}{timestamp}",
+      "output": "first 16 hex characters of hexdigest",
+      "note": "HMAC is generated by cv-service but not yet validated by ws-bridge or dashboard (known gap)"
+    },
+    "position_calculation": {
+      "x": "( (x1+x2)/2 / frame_width  ) × POSITION_SCALE_X",
+      "y": "( (y1+y2)/2 / frame_height ) × POSITION_SCALE_Y",
+      "z": "( (x2-x1)   / frame_width  ) × POSITION_SCALE_Z  (proxy for depth via relative box width)"
+    }
+  },
+
+  "security": {
+    "transport": {
+      "kafka": "PLAINTEXT by default; configure SASL_SSL for production deployments outside a trusted network",
+      "websocket": "unencrypted ws:// by default; terminate TLS at nginx reverse proxy and forward as wss:// for HTTPS deployments"
+    },
+    "hmac_integrity": {
+      "key_env_var": "DETECTION_SECRET_KEY",
+      "startup_warning_if_default": true,
+      "consumer_verification": "not implemented in v1 (known gap)"
+    },
+    "input_validation": {
+      "kafka_messages": "try/catch in ws-bridge; malformed JSON is logged and discarded",
+      "camera_src_env_vars": "digit-only values coerced to integer camera index; string values passed as-is",
+      "websocket_client_messages": "try/catch; only ping type is acted upon"
+    },
+    "secrets": [
+      { "secret": "DETECTION_SECRET_KEY",     "storage": ".env file",                       "note": "Never commit .env; protected by .gitignore" },
+      { "secret": "KAFKA_SASL_PASSWORD",       "storage": ".env file",                       "note": "Only needed for SASL deployments" },
+      { "secret": "GITHUB_TOKEN",              "storage": "GitHub Actions automatic secret",  "note": "Used for GHCR push" },
+      { "secret": "VERCEL_DEPLOY_HOOK_URL",    "storage": "GitHub Actions repository secret", "note": "URL-based trigger; no bearer token" }
+    ]
+  },
+
+  "performance_targets": [
+    { "metric": "End-to-end latency (camera → dashboard)", "target": "<= 250 ms",  "context": "At 15 FPS on CPU hardware" },
+    { "metric": "cv-service FPS (CPU, 3 cameras, 416px)", "target": ">= 10 FPS",  "context": "YOLOv8n on Raspberry Pi 4 class hardware" },
+    { "metric": "cv-service FPS (GPU, 3 cameras, 640px)", "target": ">= 25 FPS",  "context": "On NVIDIA GTX 1060+ class" },
+    { "metric": "Kafka producer send() timeout",          "target": "10 s",        "context": "Detection dropped if broker unreachable > 10 s" },
+    { "metric": "WebSocket reconnect window",             "target": "15 s max",    "context": "5 attempts × 3 s before giving up" },
+    { "metric": "Dashboard detection render lag",         "target": "<= 1 frame",  "context": "React state update on each WebSocket message" }
+  ],
+
+  "infrastructure": {
+    "docker_compose_services": [
+      { "service": "zookeeper",  "image": "confluentinc/cp-zookeeper:7.4.0", "approx_memory": "256 MB",  "ports": [2181] },
+      { "service": "kafka",      "image": "confluentinc/cp-kafka:7.4.0",     "approx_memory": "512 MB",  "ports": [9092, 29092] },
+      { "service": "cv-service", "build": "backend_Python/",                  "approx_memory": "1-4 GB",  "ports": [] },
+      { "service": "ws-bridge",  "build": "Dashboard_Service/backend_Kafka/", "approx_memory": "128 MB",  "ports": [8081, 8082] },
+      { "service": "dashboard",  "build": "Dashboard_Service/",               "approx_memory": "32 MB",   "ports": [80] }
+    ],
+    "startup_order": [
+      "zookeeper",
+      "kafka (health-checked; waits for zookeeper)",
+      "cv-service (waits for kafka: service_healthy)",
+      "ws-bridge  (waits for kafka: service_healthy)",
+      "dashboard  (waits for ws-bridge)"
+    ],
+    "volume_mounts": [
+      { "service": "cv-service", "host": "./shared",     "container": "/app/backend/shared", "purpose": "Live config edits without rebuild" },
+      { "service": "cv-service", "host": "/dev/video0",  "container": "/dev/video0",         "purpose": "Left USB camera" },
+      { "service": "cv-service", "host": "/dev/video1",  "container": "/dev/video1",         "purpose": "Right USB camera" },
+      { "service": "cv-service", "host": "/dev/video2",  "container": "/dev/video2",         "purpose": "Rear USB camera" }
+    ],
+    "ci_cd": {
+      "platform": "GitHub Actions",
+      "workflow_file": ".github/workflows/ci-cd.yml",
+      "jobs": [
+        { "id": "lint-python",  "trigger": "every push / PR",               "outcome": "flake8 on backend_Python/ and shared/" },
+        { "id": "lint-js",      "trigger": "every push / PR",               "outcome": "eslint on Dashboard_Service/src/" },
+        { "id": "test-python",  "trigger": "every push / PR (after lint)",  "outcome": "pytest backend_Python/tests/" },
+        { "id": "build-docker", "trigger": "every push / PR (after lint)",  "outcome": "build all 3 Docker images without pushing" },
+        { "id": "push-docker",  "trigger": "push to main only",             "outcome": "push images to GHCR" },
+        { "id": "deploy",       "trigger": "push to main only",             "outcome": "trigger Vercel deploy hook" }
+      ],
+      "required_secrets": [
+        { "name": "GITHUB_TOKEN",           "job": "push-docker (automatic)" },
+        { "name": "VERCEL_DEPLOY_HOOK_URL", "job": "deploy" }
+      ]
+    }
+  },
+
+  "constraints_and_assumptions": [
+    {
+      "id": "camera_availability",
+      "description": "The system starts and runs with 0-3 cameras. Zones whose camera cannot be opened are marked not_connected and skipped silently."
+    },
+    {
+      "id": "single_kafka_partition",
+      "description": "Current configuration uses 1 partition. Multi-partition setups require updating KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR and consumer group offset handling."
+    },
+    {
+      "id": "open_websocket",
+      "description": "The WebSocket endpoint :8081 is open to any client on the same network. Deployment behind a firewall or VPN is assumed."
+    },
+    {
+      "id": "audio_device",
+      "description": "pygame.mixer is initialised at startup; failure is non-fatal — alerts become silent. Audio does not function inside Docker without PulseAudio socket passthrough."
+    },
+    {
+      "id": "gpu_passthrough_opt_in",
+      "description": "The deploy.resources.reservations block in docker-compose.yml is commented out. The host must have nvidia-container-toolkit installed to enable GPU passthrough."
+    },
+    {
+      "id": "raspberry_pi_arm_support",
+      "description": "The Python stack and YOLOv8n are compatible with ARM64. The Dashboard_Service and ws-bridge are designed for a connected display or remote laptop, not on-device."
+    },
+    {
+      "id": "no_temporal_smoothing",
+      "description": "Each Kafka message is a snapshot of detections from a single processing cycle. There is no temporal smoothing, tracking, or Kalman filtering in v1."
+    },
+    {
+      "id": "hmac_verification_unimplemented",
+      "description": "The integrity_hmac field is generated by cv-service but is not validated by the ws-bridge or dashboard. This is a known gap targeted for a future version."
+    }
+  ]
+}

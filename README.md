@@ -399,6 +399,53 @@ LEFT_CAMERA_SRC=/app/videos/left.mp4
 - **Remote Dashboard:** the WebSocket server IP defaults to `window.location.hostname` in the browser (works automatically in Docker). Use the ⚙️ Settings button to change it at runtime for remote deployments.
 
 ---
+# Pi Config
+
+## 1. Install the drei helper library
+npm install @react-three/drei
+
+## 2. Install gltf-pipeline for Draco compression (one-time tool)
+npm install -g gltf-pipeline
+
+## 3. Create the draco folder in public/
+mkdir -p public/draco
+
+## 4. Copy the decoder files from node_modules into public/draco/
+cp node_modules/three/examples/jsm/libs/draco/draco_decoder.wasm public/draco/
+cp node_modules/three/examples/jsm/libs/draco/draco_wasm_wrapper.js public/draco/
+
+## 5. Compress each of your downloaded models (run once per model)
+gltf-pipeline -i public/models/person.glb      -o public/models/person.glb      --draco.compressionLevel=7
+gltf-pipeline -i public/models/car.glb         -o public/models/car.glb         --draco.compressionLevel=7
+gltf-pipeline -i public/models/motorcycle.glb  -o public/models/motorcycle.glb  --draco.compressionLevel=7
+```
+
+---
+
+**What happens at runtime?**
+
+When your dashboard loads in the browser on the Pi, this is the sequence:
+
+1. React renders a detection → `useGLTF('/models/car.glb')` is called
+2. The browser fetches `car.glb` from your nginx server
+3. Three.js sees it's Draco-compressed → fetches `/draco/draco_decoder.wasm` to unzip it
+4. The decoded 3D mesh appears in the scene
+
+If the `draco/` folder is missing, step 3 crashes with a `DRACOLoader: decoder path not set` error. That's the only reason you need to copy those two files — they're the unzipper the browser uses.
+
+---
+
+**Folder structure after you're done:**
+```
+Dashboard_Service/
+└── public/
+    ├── draco/
+    │   ├── draco_decoder.wasm      ← the actual decompressor (binary)
+    │   └── draco_wasm_wrapper.js   ← JS glue that loads the .wasm
+    └── models/
+        ├── person.glb              ← Draco-compressed, ~500 KB
+        ├── car.glb                 ← Draco-compressed, ~300 KB
+        └── motorcycle.glb          ← Draco-compressed, ~200 KB
 
 ## CI/CD
 

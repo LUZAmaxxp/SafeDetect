@@ -8,6 +8,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * @param {string} serverIP  - hostname or IPv4 to connect to
  * @returns {{ detections, isConnected, fps, reconnect }}
  */
+// If no detection message arrives within this window, treat the frame as empty.
+const STALE_MS = 1500;
+
 export default function useWebSocket(serverIP) {
   const [detections, setDetections]   = useState([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -17,12 +20,22 @@ export default function useWebSocket(serverIP) {
   const msgCountRef     = useRef(0);
   const reconnectTimer  = useRef(null);
   const fpsTimer        = useRef(null);
+  const staleTimer      = useRef(null);
   const mountedRef      = useRef(true);
 
   const clearTimers = () => {
     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     if (fpsTimer.current)       clearInterval(fpsTimer.current);
+    if (staleTimer.current)     clearTimeout(staleTimer.current);
   };
+
+  // Resets the staleness countdown. Called on every incoming detection message.
+  const resetStaleTimer = useCallback(() => {
+    if (staleTimer.current) clearTimeout(staleTimer.current);
+    staleTimer.current = setTimeout(() => {
+      if (mountedRef.current) setDetections([]);
+    }, STALE_MS);
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current) {
@@ -50,8 +63,11 @@ export default function useWebSocket(serverIP) {
       if (!mountedRef.current) return;
       try {
         const data = JSON.parse(event.data);
-        setDetections(data.detections ?? []);
+        const dets = data.detections ?? [];
+        setDetections(dets);
         msgCountRef.current += 1;
+        // Restart the stale timer so detections clear if the camera goes quiet
+        resetStaleTimer();
       } catch (e) {
         console.warn('[WS] Failed to parse message:', e);
       }
